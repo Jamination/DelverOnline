@@ -1,0 +1,84 @@
+HOSTING A DELVER ONLINE SERVER FOR FRIENDS
+==========================================
+
+Your network
+------------
+  This PC (local address):   192.168.7.208   (wired, enp4s0)
+  Router / default gateway:  192.168.7.1     (Icotera i4882-01)
+  Router admin page:         http://192.168.7.1
+  Router login:              username "admin", password from the router sticker
+  Public address:            149.13.193.50   (as seen by websites; your ISP may change it)
+  Server port:               UDP 27960
+
+Port forwarding (already set up)
+--------------------------------
+The router forwards UDP port 27960 to this PC (192.168.7.208).
+If friends suddenly cannot connect, check in the router admin page that:
+  - the rule still exists and is UDP (not TCP), external and internal port 27960
+  - it still points at 192.168.7.208. This PC gets its address automatically, so
+    it can change. Reserve 192.168.7.208 for this PC in the router's DHCP
+    settings so it stays the same.
+Do NOT factory-reset the router to get back in: on a fibre box this can wipe
+the settings your ISP pushed and leave you without internet.
+
+1. Build the executables (only after code changes)
+--------------------------------------------------
+  cd ~/Projects/DelverOnline
+  ./gradlew release
+
+  Results in build/release/:
+    DelverOnline-linux-x64              the game with multiplayer
+    DelverOnline-Server-linux-x64       the dedicated server
+    DelverOnline-linux-x64.zip          both, plus the README
+    DelverOnline-windows-x64.zip        Windows versions for friends on Windows
+
+2. Start the server
+-------------------
+  build/release/DelverOnline-Server-linux-x64
+
+  It listens on UDP 27960. Leave the terminal open; type commands into it:
+    help              list all commands
+    players           who is connected (and whether a friend's connection arrived)
+    status            server state
+    say <text>        message everyone
+    kick <name>       remove a player
+    newrun            restart the dungeon
+    stop              shut the server down
+
+3. Give your friends the game
+-----------------------------
+  Each friend needs Delver (from Steam) and the zip for their system:
+    Windows: DelverOnline-windows-x64.zip
+    Linux:   DelverOnline-linux-x64.zip
+  They unzip it and run DelverOnline-windows-x64.exe / DelverOnline-linux-x64.
+  No Java install is needed. Everyone must use the same build as the server
+  (a mismatch is refused with a "Version mismatch" message).
+
+4. Joining
+----------
+  Friends:  main menu -> Multiplayer -> Server: 149.13.193.50  -> name -> Join
+  You:      main menu -> Multiplayer -> Server: 127.0.0.1      -> name -> Join
+            (or 192.168.7.208)
+
+  Do not join your own server through 149.13.193.50 from this PC: many routers
+  don't route a PC's own public address back to it, so joining that way can fail
+  even when outside players can connect.
+
+If a friend cannot connect
+--------------------------
+  1. Is the server running? Type "status" in its console.
+  2. Did their connection attempt arrive? Type "players" in the console.
+  3. Check the router rule: UDP, port 27960, to 192.168.7.208.
+  4. Has your public address changed? Open https://api.ipify.org and send them the new one.
+  5. If the router's own status page shows an internet address different from
+     your public one, another router or the ISP sits in front of yours (double
+     NAT), so the forward cannot work. Ask the ISP for a public IP or bridge mode,
+     or use Tailscale / ZeroTier / playit.gg instead (no port forwarding needed).
+
+Notes
+-----
+  - Up to 8 players.
+  - A player who drops out and rejoins with the same name during the same run
+    gets their character back.
+  - To run a second game window on this PC for testing:
+      DELVERONLINE_NO_STEAM=1 DELVERONLINE_DATA=~/.local/share/DelverOnline-2 build/release/DelverOnline-linux-x64
