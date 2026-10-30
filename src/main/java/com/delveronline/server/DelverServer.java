@@ -60,9 +60,13 @@ public final class DelverServer implements NetListener {
 
     private final HashMap<String, Departed> departed = new HashMap<>();
 
-    /** A new run starts everyone from scratch. */
+    /**
+     * A new run starts everyone from scratch: forget players who left, and the previous run's characters of those
+     * still here (so leaving before their next report does not carry the old run's items over).
+     */
     void forgetDeparted() {
         departed.clear();
+        for (ServerPlayer p : players.values()) p.character = null;
     }
 
     /** The party reached a new depth: players who left while dead come back alive, like everyone else. */

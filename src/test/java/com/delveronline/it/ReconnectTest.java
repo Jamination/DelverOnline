@@ -21,15 +21,16 @@ class ReconnectTest {
             // Alice picks up something a new character never has, then drops out
             server.ask("give Alice Boss/Orb", "gave .* to Alice", 10);
             Harness.sleep(4000); // the character report goes out every 3 s
+            int sm = server.mark();
             alice.send("quit");
-            server.await("Alice left", 20);
+            server.awaitFrom(sm, "Alice left", 20);
 
             // ... and comes back with it
             alice = h.bot("Alice", "--seed", "23");
             alice.send("wander off");
             alice.await("EVENT restored \\d+ items", 120);
             alice.await("EVENT level \\d+", 60);
-            server.await("Alice returned: character restored", 10);
+            server.awaitFrom(sm, "Alice returned: character restored", 10);
             alice.ask("inv", "EVENT inv .*QuestItem", 10);
 
             // a player who leaves dead comes back dead and spectates
@@ -37,19 +38,22 @@ class ReconnectTest {
             server.send("kill Alice");
             alice.awaitFrom(m, "EVENT died", 30);
             Harness.sleep(4000);
+            sm = server.mark();
             alice.send("quit");
-            server.await("Alice left", 20);
+            server.awaitFrom(sm, "Alice left", 20);
             alice = h.bot("Alice", "--seed", "24");
             alice.send("wander off");
             alice.await("EVENT restored \\d+ items hp 0", 120);
             alice.await("EVENT spectating", 60);
-            server.await("Alice returned: character restored \\(still dead\\)", 10);
+            server.awaitFrom(sm, "Alice returned: character restored \\(still dead\\)", 10);
 
             // a new run starts everyone from scratch
+            sm = server.mark();
+            int bm = bob.mark();
             alice.send("quit");
-            server.await("Alice left", 20);
+            server.awaitFrom(sm, "Alice left", 20);
             server.send("newrun");
-            bob.await("EVENT level \\d+ 0 ", 90);
+            bob.awaitFrom(bm, "EVENT level \\d+ 0 ", 90);
             Harness.sleep(9000); // the server only accepts players a few seconds after a run starts
             alice = h.bot("Alice", "--seed", "25");
             alice.send("wander off");
