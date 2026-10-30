@@ -31,13 +31,15 @@ and the multiplayer code is woven in at start-up by a Java agent, so the Steam i
 ## Requirements
 
 - Delver from Steam (`delver.jar` and its bundled Java 8 runtime are used as-is).
-- To build: any JDK 8+ (the Gradle wrapper falls back to a JDK in `.tools/jdk-*` when none is installed).
+- To build: any JDK 8+ (the Gradle wrapper falls back to a JDK in `.tools/jdk-*` when none is installed). The release
+  executables also need Go 1.21+ (`go` on `PATH`, or `GO=/path/to/go`).
 
 ## Build
 
 ```sh
 ./gradlew build        # compiles, runs the unit + multiplayer scenario tests, produces build/libs/delveronline.jar
 ./gradlew dist         # build/dist/DelverOnline/ (+ .zip): jar, launch scripts, this README
+./gradlew release      # build/release/: single-file executables, see below
 ```
 
 If Delver is not in the default Steam location, pass `-PdelverDir=/path/to/Delver` (or set `DELVER_DIR`).
@@ -50,6 +52,20 @@ Start the game with the mod:
 |---|---|---|
 | client | `scripts/run-client.sh` | `scripts\run-client.bat` |
 | server | `scripts/run-server.sh [--port 27960] [--name ...]` | `scripts\run-server.bat ...` |
+
+Or use the single-file executables from `./gradlew release` instead of the scripts. They need no Java and no other
+files: each one carries the mod and starts it with the Java runtime that comes with Delver.
+
+| | Linux (x64) | Windows (x64) |
+|---|---|---|
+| client | `DelverOnline-linux-x64` | `DelverOnline-windows-x64.exe` |
+| server | `DelverOnline-Server-linux-x64 [--port 27960] ...` | `DelverOnline-Server-windows-x64.exe ...` |
+
+They find Delver through `DELVER_DIR`, then the folder they are in (or its parent), then the Steam libraries
+(including extra library folders). The mod is unpacked once per version into the user cache folder
+(`~/.cache/DelverOnline`, `%LOCALAPPDATA%\DelverOnline`). The Windows game executable has no console; it logs to
+`client.log` in its data folder and shows a message box if it cannot start. The same environment variables as the
+scripts apply (except `DELVERONLINE_JAR`).
 
 In the main menu, click **Multiplayer**, enter `host` or `host:port` (default UDP port **27960**) and a name, then **Join**.
 Single player is unaffected. The modded game keeps its own options and saves in `~/.local/share/DelverOnline`

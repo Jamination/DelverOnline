@@ -102,3 +102,47 @@ tasks.register('dist', Copy) {
                 basedir: layout.buildDirectory.dir('dist').get().asFile, includes: 'DelverOnline/**')
     }
 }
+
+// Single-file executables (no Java needed: they carry the mod and start it with the Java runtime Delver ships with).
+// Needs a Go toolchain (`go` on PATH, or GO=/path/to/go).
+tasks.register('release') {
+    description = 'Builds build/release: single-file client and server executables for Linux and Windows (x64).'
+    group = 'distribution'
+    dependsOn jar
+    inputs.file(jar.archiveFile)
+    inputs.dir('launcher')
+    def outDir = layout.buildDirectory.dir('release')
+    outputs.dir(outDir)
+    doLast {
+        def src = layout.buildDirectory.dir('launcher-src').get().asFile
+        project.delete(src, outDir)
+        project.copy {
+            from('launcher') { include '*.go', 'go.mod' }
+            from(jar.archiveFile) { rename { 'delveronline.jar' } }
+            into src
+        }
+        def go = System.getenv('GO') ?: 'go'
+        def targets = [
+                [os: 'linux', mode: 'client', name: 'DelverOnline-linux-x64'],
+                [os: 'linux', mode: 'server', name: 'DelverOnline-Server-linux-x64'],
+                [os: 'windows', mode: 'client', name: 'DelverOnline-windows-x64.exe'],
+                [os: 'windows', mode: 'server', name: 'DelverOnline-Server-windows-x64.exe'],
+        ]
+        targets.each { t ->
+            def ldflags = "-s -w -X main.mode=${t.mode}" + (t.os == 'windows' && t.mode == 'client' ? ' -H windowsgui' : '')
+            def result = project.exec {
+                workingDir src
+                // keep Go's caches inside the build directory; never let it download a different toolchain
+                environment 'GOOS', t.os
+                environment 'GOARCH', 'amd64'
+                environment 'CGO_ENABLED', '0'
+                environment 'GOTOOLCHAIN', 'local'
+                environment 'GOCACHE', layout.buildDirectory.dir('go-cache').get().asFile.path
+                environment 'GOPATH', layout.buildDirectory.dir('go-path').get().asFile.path
+                commandLine go, 'build', '-trimpath', '-ldflags', ldflags, '-o', outDir.get().file(t.name).asFile.path, '.'
+                ignoreExitValue = true
+            }
+            if (result.exitValue != 0) throw new GradleException("go build failed for ${t.name} (is Go installed? set GO=/path/to/go)")
+        }
+    }
+}
