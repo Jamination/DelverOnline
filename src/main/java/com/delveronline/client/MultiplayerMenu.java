@@ -168,7 +168,10 @@ public final class MultiplayerMenu {
                     }
                 }),
                 Actions.delay(1.75f), // as long as the main menu's own fade into a new game
-                Actions.run(start)));
+                // Switch screens between frames, not here: this runs inside the menu's tick, and the menu still
+                // draws the rest of this frame after it. Showing the game screen now would start the game and
+                // move the renderer to its level mid-frame, so the hidden menu would draw one frame through it.
+                Actions.run(() -> Gdx.app.postRunnable(start))));
         return true;
     }
 
