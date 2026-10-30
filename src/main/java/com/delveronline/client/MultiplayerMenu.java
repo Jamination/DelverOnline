@@ -6,6 +6,9 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.scenes.scene2d.Action;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -18,6 +21,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.delveronline.Mp;
 import com.interrupt.dungeoneer.Audio;
+import com.interrupt.dungeoneer.GameApplication;
 import com.interrupt.dungeoneer.screens.MainMenuScreen;
 import com.interrupt.dungeoneer.ui.UiSkin;
 
@@ -71,7 +75,8 @@ public final class MultiplayerMenu {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     click();
-                    showPanel(screen, null);
+                    final Table full = (Table) get(fullTableField, screen);
+                    fadeOutThen(full, () -> showPanel(screen, null));
                 }
             });
             buttonTable.add(mp).align(16).height(20f).padLeft(4f);
@@ -120,6 +125,53 @@ public final class MultiplayerMenu {
         return fieldStyle;
     }
 
+    /** The main menu's own timings: content fades in over 0.2 s, save slots follow each other 0.1 s apart. */
+    private static final float FADE_IN = 0.2f, FADE_OUT = 0.2f, ROW_STAGGER = 0.1f;
+
+    /** The panel currently on screen, for the fade into the game. Render thread only. */
+    private static MainMenuScreen activeScreen;
+    private static Table activeTable;
+
+    /** Fades the menu content out (ignoring clicks meanwhile), then runs {@code next}. */
+    private static void fadeOutThen(Table full, Runnable next) {
+        full.setTouchable(Touchable.disabled);
+        full.clearActions();
+        full.addAction(Actions.sequence(Actions.fadeOut(FADE_OUT), Actions.run(next)));
+    }
+
+    /**
+     * The server sent the level: leave the join panel the way Delver leaves the menu for a new game (panel fades
+     * out, the screen and music fade to black) and then run {@code start}. Returns false when no panel is showing;
+     * the caller then starts right away.
+     */
+    static boolean transitionToGame(Runnable start) {
+        MainMenuScreen screen = activeScreen;
+        Table full = activeTable;
+        activeScreen = null;
+        activeTable = null;
+        if (screen == null || full == null || GameApplication.instance == null
+                || GameApplication.instance.getScreen() != screen) {
+            return false;
+        }
+        full.setTouchable(Touchable.disabled);
+        full.clearActions();
+        full.addAction(Actions.sequence(
+                Actions.fadeOut(0.3f),
+                Actions.delay(0.2f),
+                Actions.run(() -> {
+                    try {
+                        Field f = MainMenuScreen.class.getDeclaredField("fadingOut");
+                        f.setAccessible(true);
+                        f.setBoolean(screen, true);
+                    } catch (ReflectiveOperationException e) {
+                        // no fade to black: the game still starts
+                    }
+                }),
+                Actions.delay(1.75f), // as long as the main menu's own fade into a new game
+                Actions.run(start)));
+        return true;
+    }
+
     /** Replaces the menu content with the join panel. */
     static void showPanel(final MainMenuScreen screen, String message) {
         try {
@@ -130,6 +182,7 @@ public final class MultiplayerMenu {
             final Skin skin = UiSkin.getSkin();
             ClientSettings settings = ClientSettings.load();
 
+            full.clearActions();
             full.padTop(0f);
             full.clear();
             Table t = new Table(skin);
@@ -148,10 +201,12 @@ public final class MultiplayerMenu {
             name.setMaxLength(16);
             name.setName("delveronline-name");
 
-            t.add(new Label("Server", skin)).left().padRight(8f);
+            Label serverLabel = new Label("Server", skin);
+            t.add(serverLabel).left().padRight(8f);
             t.add(address).width(220f).height(22f).left();
             t.row().padTop(4f);
-            t.add(new Label("Name", skin)).left().padRight(8f);
+            Label nameLabel = new Label("Name", skin);
+            t.add(nameLabel).left().padRight(8f);
             t.add(name).width(220f).height(22f).left();
             t.row();
 
@@ -213,7 +268,12 @@ public final class MultiplayerMenu {
                     click();
                     MpClient c = MpClient.current();
                     if (c != null && !c.gameStarted) c.disconnect("cancelled");
-                    screen.makeContent();
+                    activeScreen = null;
+                    activeTable = null;
+                    fadeOutThen(full, () -> {
+                        full.setTouchable(Touchable.enabled);
+                        screen.makeContent(); // fades the main menu back in
+                    });
                 }
             });
             TextField.TextFieldListener enter = (field, c) -> {
@@ -223,6 +283,19 @@ public final class MultiplayerMenu {
             name.setTextFieldListener(enter);
             stage.setKeyboardFocus(address.getText().isEmpty() ? address : name);
             address.setCursorPosition(address.getText().length());
+
+            // fade in like Delver's own menu: the panel, then its rows one after another like the save slots
+            full.getColor().a = 1f;
+            full.setTouchable(Touchable.enabled);
+            full.addAction(Actions.sequence(Actions.fadeOut(1.0E-4f), Actions.fadeIn(FADE_IN)));
+            Actor[][] rows = {{title}, {serverLabel, address}, {nameLabel, name}, {status}, {back, join}};
+            for (int i = 0; i < rows.length; i++) {
+                for (Actor a : rows[i]) {
+                    a.addAction(Actions.sequence(Actions.fadeOut(1.0E-4f), Actions.delay((i + 1) * ROW_STAGGER), Actions.fadeIn(FADE_IN)));
+                }
+            }
+            activeScreen = screen;
+            activeTable = full;
         } catch (Exception e) {
             Mp.log("could not show the multiplayer panel: " + e);
             e.printStackTrace();

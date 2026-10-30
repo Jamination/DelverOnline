@@ -400,8 +400,12 @@ public final class MpClient implements NetListener {
             pendingLevel = d;
             status = "Entering " + d.name + "...";
             // GameScreen.show -> GameManager.startGame -> new Game -> Game.Start (hooked) -> setupGame
-            GameApplication.instance.mainScreen.didStart = false;
-            GameApplication.ShowMainScreen();
+            Runnable start = () -> {
+                if (phase == Phase.CLOSED) return; // dropped during the fade: the disconnect shows the menu
+                GameApplication.instance.mainScreen.didStart = false;
+                GameApplication.ShowMainScreen();
+            };
+            if (!MultiplayerMenu.transitionToGame(start)) start.run();
             return;
         }
         switchLevel(d);
