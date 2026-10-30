@@ -26,7 +26,7 @@ public final class ServerPlayer {
     public boolean god;
     public int lastStateSeq = -1;
     public long joinedMs = System.currentTimeMillis();
-    /** Which bandit this player looks like to the others (0 .. Msg.PLAYER_LOOKS-1). */
+    /** Which character this player looks like to the others (0 .. Msg.PLAYER_LOOKS-1). */
     public int look;
 
     ServerPlayer(DelverServer server, int id, String name, Connection conn) {

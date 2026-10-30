@@ -9,17 +9,17 @@ import com.interrupt.dungeoneer.game.Level;
 import com.interrupt.dungeoneer.gfx.drawables.DrawableSprite;
 
 /**
- * How other players look: one of Delver's bandits (see {@link BanditSprites}), playing the bandit's own walk,
- * attack, hurt and death animations. The player's real held item is drawn in the bandit's hand and follows the
+ * How other players look: one of Delver's humanoid characters (see {@link CharacterSprites}), playing its own walk,
+ * attack, hurt and death animations. The player's real held item is drawn in the character's hand and follows the
  * hand and the weapon direction of every frame, so it swings with the attack animation; the off-hand item sits in
  * the other hand.
  */
 public class RemoteAvatar extends Entity {
     /** Remote movement is shown slightly in the past so it is always between two received states. */
     private static final long RENDER_DELAY_MS = 66;
-    /** Held item size (item atlas scale 0.5): roughly the size of the weapon the bandit sprite carried. */
+    /** Held item size (item atlas scale 0.5): roughly the size of the weapons the characters carried. */
     private static final float ITEM_SCALE = 0.85f;
-    /** Animation lengths in game ticks (from data/monsters.dat); attacks are a little quicker than a bandit's. */
+    /** Animation lengths in game ticks (from data/monsters.dat); attacks are a little quicker than a monster's. */
     private static final float WALK_TIME = 30f, ATTACK_TIME = 24f, HURT_TIME = 22f, DIE_TIME = 22f;
 
     public final int playerId;
@@ -33,7 +33,7 @@ public class RemoteAvatar extends Entity {
     private long prevMs, nextMs;
     private boolean hasState;
 
-    private BanditSprites.Look look = BanditSprites.LOOKS[0];
+    private CharacterSprites.Look look = CharacterSprites.LOOKS[0];
     private Anim anim = Anim.IDLE;
     private float animTime;
     private int lastAttackCount = -1;
@@ -90,7 +90,7 @@ public class RemoteAvatar extends Entity {
         this.playerId = playerId;
         this.playerName = name;
         this.artType = ArtType.entity;
-        this.spriteAtlas = BanditSprites.ATLAS;
+        this.spriteAtlas = CharacterSprites.ATLAS;
         this.tex = 0;
         this.isSolid = false;
         this.isDynamic = true;
@@ -101,13 +101,13 @@ public class RemoteAvatar extends Entity {
     }
 
     void setLook(int index) {
-        look = BanditSprites.LOOKS[Math.floorMod(index, BanditSprites.LOOKS.length)];
+        look = CharacterSprites.LOOKS[Math.floorMod(index, CharacterSprites.LOOKS.length)];
     }
 
     @Override
     public void updateDrawable() {
-        // the bandit atlas is built from the game's sprite sheet the first time an avatar is drawn
-        BanditSprites.ensureBuilt();
+        // the character atlas is built from the game's sprite sheets the first time an avatar is drawn
+        CharacterSprites.ensureBuilt();
         super.updateDrawable();
     }
 
@@ -245,9 +245,9 @@ public class RemoteAvatar extends Entity {
         if (len < 0.0001f) return;
         float rx = -dy / len, ry = dx / len;
 
-        int frame = tex < BanditSprites.hasHand.length && BanditSprites.hasHand[tex] ? tex : look.base; // idle hand
+        int frame = tex < CharacterSprites.hasHand.length && CharacterSprites.hasHand[tex] ? tex : look.base; // idle hand
         if (!held.hidden) {
-            hold(held, rx, ry, BanditSprites.handX[frame], BanditSprites.handY[frame], BanditSprites.handAngle[frame], true);
+            hold(held, rx, ry, CharacterSprites.handX[frame], CharacterSprites.handY[frame], CharacterSprites.handAngle[frame], true);
         }
         if (!offhand.hidden) hold(offhand, rx, ry, look.offhandX, look.offhandY, 0f, false);
     }
@@ -258,9 +258,9 @@ public class RemoteAvatar extends Entity {
      */
     private void hold(Part part, float rx, float ry, float hx, float hy, float angle, boolean byHandle) {
         // the hand in the world: body frames are 1 unit per 32 px, frame centre at the avatar position
-        float handRight = hx / BanditSprites.SIZE - 0.5f;
-        float handUp = z + yOffset - (hy / BanditSprites.SIZE - 0.5f);
-        BanditSprites.Grip g = BanditSprites.grip(part.atlas, part.tex);
+        float handRight = hx / CharacterSprites.SIZE - 0.5f;
+        float handUp = z + yOffset - (hy / CharacterSprites.SIZE - 0.5f);
+        CharacterSprites.Grip g = CharacterSprites.grip(part.atlas, part.tex);
         com.interrupt.dungeoneer.gfx.TextureAtlas atlas = com.interrupt.dungeoneer.gfx.TextureAtlas.getCachedRegion(part.atlas);
         if (g == null || atlas == null) {
             part.hidden = true;

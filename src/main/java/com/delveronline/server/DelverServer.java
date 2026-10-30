@@ -432,7 +432,7 @@ public final class DelverServer implements NetListener {
         broadcastReliable(w);
     }
 
-    /** A random bandit, preferring the ones fewest players already look like. */
+    /** A random character, preferring the ones fewest players already look like. */
     private int pickLook() {
         int[] used = new int[Msg.PLAYER_LOOKS];
         for (ServerPlayer p : players.values()) used[p.look]++;
