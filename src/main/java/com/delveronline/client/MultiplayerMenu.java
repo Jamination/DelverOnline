@@ -287,14 +287,18 @@ public final class MultiplayerMenu {
             stage.setKeyboardFocus(address.getText().isEmpty() ? address : name);
             address.setCursorPosition(address.getText().length());
 
-            // fade in like Delver's own menu: the panel, then its rows one after another like the save slots
-            full.getColor().a = 1f;
+            // fade in like Delver's own menu: the panel, then its rows one after another like the save slots.
+            // Alphas are set directly, not with an instant fadeOut action: this runs inside the menu fade-out
+            // action, and full.clear() above removed that running action, so actor.act() skips the actions added
+            // here until next frame. With an action, the panel window would be drawn fully opaque for one frame.
+            full.getColor().a = 0f;
             full.setTouchable(Touchable.enabled);
-            full.addAction(Actions.sequence(Actions.fadeOut(1.0E-4f), Actions.fadeIn(FADE_IN)));
+            full.addAction(Actions.fadeIn(FADE_IN));
             Actor[][] rows = {{title}, {serverLabel, address}, {nameLabel, name}, {status}, {back, join}};
             for (int i = 0; i < rows.length; i++) {
                 for (Actor a : rows[i]) {
-                    a.addAction(Actions.sequence(Actions.fadeOut(1.0E-4f), Actions.delay((i + 1) * ROW_STAGGER), Actions.fadeIn(FADE_IN)));
+                    a.getColor().a = 0f;
+                    a.addAction(Actions.sequence(Actions.delay((i + 1) * ROW_STAGGER), Actions.fadeIn(FADE_IN)));
                 }
             }
             activeScreen = screen;
