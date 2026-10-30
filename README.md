@@ -56,6 +56,16 @@ Environment variables used by the scripts: `DELVER_DIR` (game install), `DELVERO
 `DELVERONLINE_SERVER_DATA` (server working dir), `DELVERONLINE_JAR`, and `DELVERONLINE_JVM_OPTS` (extra JVM options;
 `-Ddelveronline.fpslog=true` logs in-game frames per second every 10 s).
 
+**Two game windows on one PC.** Steam closes a second running copy of Delver. Start the extra copy without the Steam
+sign-in and with its own data folder:
+
+```sh
+DELVERONLINE_NO_STEAM=1 DELVERONLINE_DATA=~/.local/share/DelverOnline-2 scripts/run-client.sh
+```
+
+On Windows: `set DELVERONLINE_NO_STEAM=1`, `set DELVERONLINE_DATA=%APPDATA%\DelverOnline-2`, then `scripts\run-client.bat`.
+Without the sign-in, Steam features such as achievements are off for that copy.
+
 The server needs UDP port 27960 (or `--port`) reachable by the players.
 
 ### Server console

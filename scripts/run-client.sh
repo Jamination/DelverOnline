@@ -6,6 +6,7 @@
 #   DELVER_DIR         Delver install (default: Steam library location)
 #   DELVERONLINE_DATA  where the modded game keeps options, saves and the last server
 #   DELVERONLINE_JAR   path to delveronline.jar (default: next to this script)
+#   DELVERONLINE_NO_STEAM=1  don't sign in to Steam (lets a second copy run next to a Steam-started one)
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 JAR="${DELVERONLINE_JAR:-$HERE/delveronline.jar}"
@@ -25,8 +26,13 @@ JAVA="$DELVER_DIR/jre-linux/linux64/bin/java"
 [ -x "$JAVA" ] || JAVA=java
 
 mkdir -p "$DATA_DIR"
-# lets the Steam API identify the game when started outside of Steam
-[ -f "$DATA_DIR/steam_appid.txt" ] || cp "$DELVER_DIR/steam_appid.txt" "$DATA_DIR/" 2>/dev/null || true
+if [ -n "$DELVERONLINE_NO_STEAM" ] && [ "$DELVERONLINE_NO_STEAM" != 0 ]; then
+    # without steam_appid.txt the Steam API stays offline; the game runs normally
+    rm -f "$DATA_DIR/steam_appid.txt"
+elif [ ! -f "$DATA_DIR/steam_appid.txt" ]; then
+    # lets the Steam API identify the game when started outside of Steam
+    cp "$DELVER_DIR/steam_appid.txt" "$DATA_DIR/" 2>/dev/null || true
+fi
 cd "$DATA_DIR"
 # DELVERONLINE_JVM_OPTS: extra JVM options, e.g. -Ddelveronline.fpslog=true to log frames per second
 # shellcheck disable=SC2086
