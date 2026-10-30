@@ -45,21 +45,21 @@ final class NameTags {
             cam.project(tmp, 0, 0, w, h);
             if (!begun) {
                 if (batch == null) batch = new SpriteBatch(64);
-                // the skin font is y-down; draw it in a y-down projection
-                projection.setToOrtho(0, w, h, 0, -1, 1);
+                // cam.project gives bottom-left origin screen pixels: draw in the same space
+                projection.setToOrtho2D(0, 0, w, h);
                 batch.setProjectionMatrix(projection);
                 batch.begin();
                 begun = true;
             }
             float oldScaleX = font.getData().scaleX, oldScaleY = font.getData().scaleY;
-            // the skin draws this font at 0.1x in its UI units; a bit smaller than chat text
-            font.getData().setScale(0.085f * scale);
+            // chat draws the skin font at its own scale in a viewport of `scale` pixels per unit; match it, a bit smaller
+            font.getData().setScale(oldScaleX * scale * 0.85f, oldScaleY * scale * 0.85f);
             String text = a.isDead() ? a.playerName + " (dead)" : a.playerName;
             layout.setText(font, text);
             float x = tmp.x - layout.width / 2f;
-            float y = h - tmp.y - layout.height;
+            float y = tmp.y + layout.height;
             font.setColor(0f, 0f, 0f, 0.7f);
-            font.draw(batch, text, x + scale, y + scale);
+            font.draw(batch, text, x + scale, y - scale);
             font.setColor(a.isDead() ? 0.7f : 1f, a.isDead() ? 0.7f : 0.95f, a.isDead() ? 0.7f : 0.75f, 1f);
             font.draw(batch, text, x, y);
             font.getData().setScale(oldScaleX, oldScaleY);
