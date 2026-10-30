@@ -104,6 +104,7 @@ final class Commands {
                     ServerPlayer p = player(a1);
                     if (p == null) break;
                     p.god = !p.god;
+                    p.send(new ByteWriter(2).writeByte(Msg.S_GOD).writeBool(p.god));
                     out(p.name + (p.god ? " is now invulnerable" : " is mortal again"));
                     break;
                 }

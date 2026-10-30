@@ -63,14 +63,24 @@ class SoakTest {
                     server.send("kill " + victim.name);
                     victim.awaitFrom(m, "EVENT spectating", 30);
                     deaths++;
-                    // ... and comes back when the party reaches the next level
+                    // ... and comes back when the party reaches a level it has never been to. Wandering bots
+                    // also take stairs (up, too), so keep heading down until that happens.
                     Harness.sleep(20_000);
                     Harness.Proc leader = bots.get((bots.indexOf(victim) + 1) % PLAYERS);
                     int vm = victim.mark();
-                    leader.send("stairs down");
-                    victim.awaitFrom(vm, "EVENT revived", 60);
+                    boolean revived = false;
+                    for (int step = 0; step < 6 && !revived; step++) {
+                        leader.send("stairs down");
+                        levelChanges++;
+                        try {
+                            victim.awaitFrom(vm, "EVENT revived", 20);
+                            revived = true;
+                        } catch (AssertionError notYet) {
+                            // the party descended into a level it already knew
+                        }
+                    }
+                    if (!revived) victim.awaitFrom(vm, "EVENT revived", 1);
                     revives++;
-                    levelChanges++;
                 } else {
                     for (Harness.Proc b : bots) b.send("chat round " + round + " from " + b.name);
                 }

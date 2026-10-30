@@ -89,4 +89,6 @@ public final class Msg {
     public static final int S_TIME = 88;
     /** reliable: knockback push to local player */
     public static final int S_PUSH = 89;
+    /** reliable: bool, server god mode for the local player (no damage at all, even client-side) */
+    public static final int S_GOD = 90;
 }

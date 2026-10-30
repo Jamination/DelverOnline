@@ -73,6 +73,8 @@ public final class MpClient implements NetListener {
 
     // local player
     boolean dead;
+    /** server-granted invulnerability (console "god"); applied to the native Player.godMode every frame */
+    boolean god;
     boolean spectating;
     int spectateId;
     boolean allowGameOver;
@@ -162,6 +164,7 @@ public final class MpClient implements NetListener {
         if (net == null) return;
         net.update();
         processInbox();
+        if (Game.instance != null && Game.instance.player != null) Game.instance.player.godMode = god;
         if (phase == Phase.CLOSED) return;
         if (inGame()) {
             Game game = Game.instance;
@@ -310,6 +313,9 @@ public final class MpClient implements NetListener {
                 if (inGame() && !dead) {
                     game.player.hp = 0;
                 }
+                break;
+            case Msg.S_GOD:
+                god = r.readBool();
                 break;
             case Msg.S_GAME_OVER:
                 allowGameOver = true;
