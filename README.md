@@ -39,7 +39,7 @@ and the multiplayer code is woven in at start-up by a Java agent, so the Steam i
 ```sh
 ./gradlew build        # compiles, runs the unit + multiplayer scenario tests, produces build/libs/delveronline.jar
 ./gradlew dist         # build/dist/DelverOnline/ (+ .zip): jar, launch scripts, this README
-./gradlew release      # build/release/: single-file executables, see below
+./gradlew release      # build/release/: single-file executables + one .zip per platform, see below
 ```
 
 If Delver is not in the default Steam location, pass `-PdelverDir=/path/to/Delver` (or set `DELVER_DIR`).

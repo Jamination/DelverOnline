@@ -144,5 +144,13 @@ tasks.register('release') {
             }
             if (result.exitValue != 0) throw new GradleException("go build failed for ${t.name} (is Go installed? set GO=/path/to/go)")
         }
+        // one archive per platform: build/release/DelverOnline-<os>-x64.zip with the client, the server and the README
+        ['linux', 'windows'].each { os ->
+            def dir = outDir.get().asFile
+            ant.zip(destfile: new File(dir, "DelverOnline-${os}-x64.zip")) {
+                zipfileset(dir: dir, includes: "*-${os}-x64*", excludes: '*.zip', filemode: '755')
+                zipfileset(file: file('README.md'))
+            }
+        }
     }
 }
