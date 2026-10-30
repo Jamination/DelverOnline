@@ -88,6 +88,11 @@ public final class MpClient implements NetListener {
     private int stateSeq;
     private float stateAccumulator;
     private long lastInventoryCheck;
+    private long lastCharacterSend;
+    private String lastCharacterJson;
+    /** a returning player's character from the server, used instead of a fresh one when the game starts */
+    private String restoreJson;
+    private boolean restoreDead;
     private int lastInventorySignature;
     private long lastReportMs;
     private int framesSinceReport;
@@ -177,6 +182,7 @@ public final class MpClient implements NetListener {
                     sendState(game.player);
                 }
                 sendInventoryIfChanged(game.player);
+                sendCharacterIfChanged(game.player);
                 if (telemetry) sendReport();
             }
         }
@@ -315,6 +321,10 @@ public final class MpClient implements NetListener {
                     game.player.hp = 0;
                 }
                 break;
+            case Msg.S_CHARACTER:
+                restoreDead = r.readBool();
+                restoreJson = new String(NetKryo.inflate(r.readBytes()), java.nio.charset.StandardCharsets.UTF_8);
+                break;
             case Msg.S_GOD:
                 god = r.readBool();
                 break;
@@ -426,6 +436,8 @@ public final class MpClient implements NetListener {
             player = new Player(game);
         }
         if (player == null) player = new Player(game);
+        Player restored = restoreCharacter();
+        if (restored != null) player = restored;
         player.randomSeed = (float) Game.rand.nextInt();
         player.startPlaytime();
         player.saveVersion = Game.SAVE_VERSION;
@@ -585,6 +597,53 @@ public final class MpClient implements NetListener {
             return;
         }
         send(new ByteWriter(bytes.length + 8).writeByte(Msg.C_INVENTORY).writeBytes(bytes));
+    }
+
+    /**
+     * Every few seconds, sends the whole character (Delver's own player save JSON: items, equipment, gold, keys,
+     * health, experience, stats) so the server can give it back if this player drops and rejoins.
+     */
+    private void sendCharacterIfChanged(Player p) {
+        long now = System.currentTimeMillis();
+        if (now - lastCharacterSend < 3000) return;
+        lastCharacterSend = now;
+        // a dying player's animation state does not serialise; the server knows they are dead, and the last living
+        // character is what comes back (as dead) if they leave now
+        if (dead || p.isDead || p.dyingAnimation != null) return;
+        String json;
+        try {
+            json = JsonUtil.toJson(p, Player.class);
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (json.equals(lastCharacterJson)) return;
+        lastCharacterJson = json;
+        byte[] packed = NetKryo.deflate(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        send(new ByteWriter(packed.length + 8).writeByte(Msg.C_CHARACTER).writeBytes(packed));
+    }
+
+    /** The character this player had before they left, or null for a new player. */
+    private Player restoreCharacter() {
+        String json = restoreJson;
+        restoreJson = null;
+        if (json == null) return null;
+        Player p;
+        try {
+            p = JsonUtil.fromJson(Player.class, json);
+        } catch (RuntimeException e) {
+            Mp.log("could not restore character: " + e);
+            return null;
+        }
+        if (p == null) return null;
+        p.isDead = false;
+        p.dyingAnimation = null;
+        if (restoreDead) {
+            p.hp = 0; // dies on the first frame and spectates, like before leaving
+        } else if (p.hp <= 0) {
+            p.hp = p.getMaxHp(); // the party reached a new level while they were away
+        }
+        event("restored " + p.inventory.size + " items hp " + p.hp + " gold " + p.gold + " level " + p.level);
+        return p;
     }
 
     // ------------------------------------------------------------------ server-driven player events

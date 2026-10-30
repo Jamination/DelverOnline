@@ -119,6 +119,7 @@ public final class ServerWorld {
         gameOver = false;
         game.gameOver = false;
         game.progression = new Progression();
+        server.forgetDeparted();
         party = new PlayerProxy();
         game.player = party;
         party.levelNum = 0;
@@ -177,6 +178,7 @@ public final class ServerWorld {
             p.proxy.y = spawnY;
             p.proxy.z = spawnZ;
         }
+        if (newDepth || reviveAll) server.reviveDeparted();
         broadcastLevel();
         server.broadcastPlayers();
     }

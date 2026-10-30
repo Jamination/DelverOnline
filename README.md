@@ -17,6 +17,10 @@ and the multiplayer code is woven in at start-up by a Java agent, so the Steam i
 - **Death and spectating**: a dead player watches the others (click or ←/→ switches who; Escape still opens the pause
   menu). When the party reaches a dungeon level it has never been to, everyone dead is revived. When every player is
   dead, the run ends with Delver's own game-over screen, exactly like single player.
+- **Rejoining keeps your character**: if you drop out and join again with the same name during the same run, you get
+  your items, equipment, gold, keys, health, experience and look back (as of a few seconds before you left). If you
+  left dead you come back dead and spectate, unless the party reached a new level meanwhile. A new run starts
+  everyone fresh. Names are not protected: whoever joins with your name gets your character.
 - **Other players** look like one of Delver's humanoid characters, picked at random when they join: the dagger
   thief, the eyepatch brute, the skeleton, the skeleton mage, the goblin warrior, the hooded mage or the zombie (all
   seven before any repeats). They use that character's own walk, attack, hurt and death animations. A weapon painted

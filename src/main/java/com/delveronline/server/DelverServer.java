@@ -44,6 +44,31 @@ public final class DelverServer implements NetListener {
     private final LinkedHashMap<Connection, ServerPlayer> players = new LinkedHashMap<>();
     private final Collection<ServerPlayer> playersView = Collections.unmodifiableCollection(players.values());
     private int nextPlayerId = 1;
+
+    /** A player who left during this run: their character comes back when they rejoin with the same name. */
+    private static final class Departed {
+        final byte[] character;
+        final int look;
+        boolean dead;
+
+        Departed(byte[] character, int look, boolean dead) {
+            this.character = character;
+            this.look = look;
+            this.dead = dead;
+        }
+    }
+
+    private final HashMap<String, Departed> departed = new HashMap<>();
+
+    /** A new run starts everyone from scratch. */
+    void forgetDeparted() {
+        departed.clear();
+    }
+
+    /** The party reached a new depth: players who left while dead come back alive, like everyone else. */
+    void reviveDeparted() {
+        for (Departed d : departed.values()) d.dead = false;
+    }
     final ConcurrentLinkedQueue<String> commands = new ConcurrentLinkedQueue<>();
     private final Commands commandHandler;
     volatile boolean running = true;
@@ -129,6 +154,9 @@ public final class DelverServer implements NetListener {
         ServerPlayer p = players.remove(connection);
         if (p == null) return;
         world.onPlayerLeft(p);
+        if (p.character != null) {
+            departed.put(p.name.toLowerCase(java.util.Locale.ROOT), new Departed(p.character, p.look, p.dead));
+        }
         pendingPickups.values().removeIf(x -> x == p);
         Mp.log(p.name + " left (" + reason + ")");
         broadcastChat(null, p.name + " left the game.");
@@ -173,7 +201,8 @@ public final class DelverServer implements NetListener {
         }
         name = uniqueName(name);
         ServerPlayer p = new ServerPlayer(this, nextPlayerId++, name, conn);
-        p.look = pickLook();
+        Departed back = departed.remove(name.toLowerCase(java.util.Locale.ROOT));
+        p.look = back != null ? back.look : pickLook();
         players.put(conn, p);
         conn.setUserData(p);
         ByteWriter w = new ByteWriter(64).writeByte(Msg.S_WELCOME).writeVarInt(p.id).writeString(config.name).writeVarInt(TICK_RATE);
@@ -181,6 +210,14 @@ public final class DelverServer implements NetListener {
         p.send(w);
         Mp.log(name + " joined from " + conn.getAddress());
         broadcastPlayers();
+        if (back != null) {
+            // the character goes first: the client builds its player from it when the level arrives
+            p.send(new ByteWriter(back.character.length + 16).writeByte(Msg.S_CHARACTER).writeBool(back.dead).writeBytes(back.character));
+            p.character = back.character;
+            p.dead = back.dead;
+            Mp.log(name + " returned: character restored" + (back.dead ? " (still dead)" : ""));
+            if (back.dead) broadcastPlayers();
+        }
         world.sendLevelTo(p);
         broadcastChat(null, name + " joined the game.");
     }
@@ -225,6 +262,11 @@ public final class DelverServer implements NetListener {
         switch (type) {
             case Msg.C_STATE: handleState(p, r); break;
             case Msg.C_INVENTORY: handleInventory(p, r); break;
+            case Msg.C_CHARACTER: {
+                byte[] c = r.readBytes();
+                if (c.length <= 512 * 1024) p.character = c;
+                break;
+            }
             case Msg.C_HIT: handleHit(p, r); break;
             case Msg.C_USE: handleUse(p, r); break;
             case Msg.C_SPAWN: handleSpawn(p, r); break;

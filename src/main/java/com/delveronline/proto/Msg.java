@@ -35,6 +35,8 @@ public final class Msg {
     public static final int C_TRIGGER = 14;
     /** reliable: won - client-side UI (e.g. the ending dialogue) asked to end the run */
     public static final int C_GAME_END = 15;
+    /** reliable: deflated JSON of the local Player (Delver's own save format), sent when it changes */
+    public static final int C_CHARACTER = 16;
 
     // ---------------------------------------------------------------- server -> client
     /** reliable: playerId, serverName, tickRate */
@@ -93,4 +95,6 @@ public final class Msg {
     public static final int S_PUSH = 89;
     /** reliable: bool, server god mode for the local player (no damage at all, even client-side) */
     public static final int S_GOD = 90;
+    /** reliable: deflated JSON of a returning player's character, sent before the level so the client restores it */
+    public static final int S_CHARACTER = 91;
 }

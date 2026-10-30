@@ -24,6 +24,8 @@ public final class ServerPlayer {
     public boolean dead;
     /** Admin toggle: damage aimed at this player is ignored. */
     public boolean god;
+    /** Latest deflated JSON of this player's character (Delver's Player save format), as reported by the client. */
+    public byte[] character;
     public int lastStateSeq = -1;
     public long joinedMs = System.currentTimeMillis();
     /** Which character this player looks like to the others (0 .. Msg.PLAYER_LOOKS-1). */
