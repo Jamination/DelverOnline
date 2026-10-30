@@ -41,8 +41,10 @@ public final class Msg {
     public static final int S_WELCOME = 64;
     /** reliable: reason */
     public static final int S_KICK = 65;
-    /** reliable: list of (id, name, alive) */
+    /** reliable: list of (id, name, alive, look) */
     public static final int S_PLAYERS = 66;
+    /** number of player looks (bandit characters) the server hands out */
+    public static final int PLAYER_LOOKS = 2;
     /** reliable: full level transfer */
     public static final int S_LEVEL = 67;
     /** reliable: netId, list, kryo entity */

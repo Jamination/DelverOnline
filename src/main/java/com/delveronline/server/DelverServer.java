@@ -173,6 +173,7 @@ public final class DelverServer implements NetListener {
         }
         name = uniqueName(name);
         ServerPlayer p = new ServerPlayer(this, nextPlayerId++, name, conn);
+        p.look = pickLook();
         players.put(conn, p);
         conn.setUserData(p);
         ByteWriter w = new ByteWriter(64).writeByte(Msg.S_WELCOME).writeVarInt(p.id).writeString(config.name).writeVarInt(TICK_RATE);
@@ -426,9 +427,20 @@ public final class DelverServer implements NetListener {
     void broadcastPlayers() {
         ByteWriter w = new ByteWriter(128).writeByte(Msg.S_PLAYERS).writeVarInt(players.size());
         for (ServerPlayer p : players.values()) {
-            w.writeVarInt(p.id).writeString(p.name).writeBool(!p.dead);
+            w.writeVarInt(p.id).writeString(p.name).writeBool(!p.dead).writeVarInt(p.look);
         }
         broadcastReliable(w);
+    }
+
+    /** A random bandit, preferring the ones fewest players already look like. */
+    private int pickLook() {
+        int[] used = new int[Msg.PLAYER_LOOKS];
+        for (ServerPlayer p : players.values()) used[p.look]++;
+        int least = Integer.MAX_VALUE;
+        for (int u : used) least = Math.min(least, u);
+        java.util.List<Integer> candidates = new java.util.ArrayList<>();
+        for (int i = 0; i < used.length; i++) if (used[i] == least) candidates.add(i);
+        return candidates.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 
     void broadcastMessage(String text, float seconds, float scale) {

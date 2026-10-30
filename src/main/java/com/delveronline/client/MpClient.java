@@ -69,6 +69,7 @@ public final class MpClient implements NetListener {
 
     final LinkedHashMap<Integer, String> names = new LinkedHashMap<>();
     final HashMap<Integer, Boolean> alive = new HashMap<>();
+    final HashMap<Integer, Integer> looks = new HashMap<>();
     final HashMap<Integer, RemoteAvatar> avatars = new HashMap<>();
 
     // local player
@@ -341,8 +342,12 @@ public final class MpClient implements NetListener {
             int id = r.readVarInt();
             String name = r.readString();
             boolean isAlive = r.readBool();
+            int look = r.readVarInt();
             seen.put(id, name);
             alive.put(id, isAlive);
+            looks.put(id, look);
+            RemoteAvatar a = avatars.get(id);
+            if (a != null) a.setLook(look);
         }
         names.clear();
         names.putAll(seen);
@@ -498,6 +503,7 @@ public final class MpClient implements NetListener {
             RemoteAvatar a = avatars.get(s.id);
             if (a == null) {
                 a = new RemoteAvatar(s.id, names.getOrDefault(s.id, "?"));
+                a.setLook(looks.getOrDefault(s.id, Math.floorMod(s.id, Msg.PLAYER_LOOKS)));
                 avatars.put(s.id, a);
                 a.addTo(level);
                 repl.markLocal(a);

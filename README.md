@@ -17,9 +17,10 @@ and the multiplayer code is woven in at start-up by a Java agent, so the Steam i
 - **Death and spectating**: a dead player watches the others (click or ←/→ switches who; Escape still opens the pause
   menu). When the party reaches a dungeon level it has never been to, everyone dead is revived. When every player is
   dead, the run ends with Delver's own game-over screen, exactly like single player.
-- **Other players** look like Delver's hooded adventurer NPC. They walk with a bob, play idle animations and swing
-  their weapon when attacking. They flash red when hurt and fall over when they die. Their held and off-hand
-  items are visible, and their name floats above them while they are in sight.
+- **Other players** look like one of Delver's bandits (the dagger thief or the eyepatch brute), picked at random when
+  they join. They use the bandit's own walk, attack, hurt and death animations. The bandit's painted weapon is
+  replaced by the item the player really holds, which sits in the bandit's hand and follows its swing; the off-hand
+  item is in the other hand. They flash red when hurt, and their name floats above them while they are in sight.
 - **Chat** in the bottom-left corner. Press **Y** to type and **Enter** to send. New lines are shown to everyone and fade out
   after a few seconds. If you have bound Y to a game action, the chat key falls back to T, U or Enter, whichever is
   free.
