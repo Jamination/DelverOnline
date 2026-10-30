@@ -38,6 +38,8 @@ final class Commands {
                             + "  revive <player|all>    bring dead players back at the level entrance\n"
                             + "  goto <level number>    move the whole party to a dungeon level\n"
                             + "  spawn <monster> [player] spawn a monster next to a player\n"
+                            + "  god <player>           toggle invulnerability for a player\n"
+                            + "  butcher                kill every monster on the current level\n"
                             + "  give <player> <item>   give an item by name\n"
                             + "  newrun                 restart the dungeon from the beginning\n"
                             + "  stop | quit            shut the server down");
@@ -50,9 +52,9 @@ final class Commands {
                 case "list":
                     if (server.players().isEmpty()) out("no players connected");
                     for (ServerPlayer p : server.players()) {
-                        out(String.format(Locale.ROOT, "  #%d %-16s %s hp %d/%d  at (%.1f, %.1f)  rtt %d ms", p.id, p.name,
-                                p.dead ? "DEAD " : "alive", p.proxy.hp, p.proxy.maxHp, p.proxy.x, p.proxy.y,
-                                (int) p.conn.getRttMs()));
+                        out(String.format(Locale.ROOT, "  #%d %-16s %s hp %d/%d  at (%.2f, %.2f, %.2f) facing %.2f  rtt %d ms", p.id,
+                                p.name, p.dead ? "DEAD " : "alive", p.proxy.hp, p.proxy.maxHp, p.proxy.x, p.proxy.y, p.proxy.z,
+                                p.proxy.rot, (int) p.conn.getRttMs()));
                     }
                     break;
                 case "say":
@@ -87,6 +89,10 @@ final class Commands {
                     }
                     break;
                 case "goto":
+                    if (server.world.gameOver) {
+                        out("the run has ended; a new one starts shortly");
+                        break;
+                    }
                     if (a1 == null) {
                         out("usage: goto <level number>");
                         break;
@@ -94,6 +100,49 @@ final class Commands {
                     server.world.gotoLevel(Integer.parseInt(a1));
                     out("party moved to level " + server.world.levelNum() + " (" + server.world.levelName() + ")");
                     break;
+                case "god": {
+                    ServerPlayer p = player(a1);
+                    if (p == null) break;
+                    p.god = !p.god;
+                    out(p.name + (p.god ? " is now invulnerable" : " is mortal again"));
+                    break;
+                }
+                case "where": {
+                    com.interrupt.dungeoneer.game.Level lv = server.world.level();
+                    int exits = 0;
+                    for (com.interrupt.dungeoneer.tiles.Tile t : lv.tiles)
+                        if (t instanceof com.interrupt.dungeoneer.tiles.ExitTile) exits++;
+                    out("level " + lv.levelName + " up=" + (lv.up == null ? "none" : lv.up.x + "," + lv.up.y)
+                            + " down=" + (lv.down == null ? "none" : lv.down.x + "," + lv.down.y) + " exitTiles=" + exits);
+                    break;
+                }
+                case "fieldstats": {
+                    java.util.List<Object[]> rows = new java.util.ArrayList<>();
+                    long total = 0;
+                    for (com.delveronline.repl.FieldSchema fs : com.delveronline.repl.FieldSchema.all()) {
+                        for (int i = 0; i < fs.size(); i++) {
+                            if (fs.bytesSent[i] == 0) continue;
+                            total += fs.bytesSent[i];
+                            rows.add(new Object[]{fs.type.getSimpleName() + "." + fs.fields[i].getName(), fs.bytesSent[i]});
+                        }
+                    }
+                    rows.sort((x, y) -> Long.compare((Long) y[1], (Long) x[1]));
+                    out("field update bytes (total " + total / 1024 + " KiB):");
+                    for (int i = 0; i < Math.min(25, rows.size()); i++) out(String.format(Locale.ROOT, "  %-40s %8d", rows.get(i)[0], rows.get(i)[1]));
+                    break;
+                }
+                case "butcher": {
+                    int n = 0;
+                    for (com.interrupt.dungeoneer.entities.Entity e : server.world.level().entities) {
+                        if (e instanceof Monster && e.isActive && ((Monster) e).hp > 0) {
+                            ((Monster) e).hp = 0;
+                            ((Monster) e).die(server.world.level());
+                            n++;
+                        }
+                    }
+                    out("killed " + n + " monsters");
+                    break;
+                }
                 case "spawn":
                     spawn(a1, parts.length > 2 ? parts[2] : null);
                     break;
@@ -127,7 +176,7 @@ final class Commands {
         }
         p.dead = false;
         p.proxy.isDead = false;
-        server.world.sendLevelTo(p); // re-enter the current level at its entrance, alive
+        // the client sees itself alive in the roster and gets back up where its camera is (next to whoever it watched)
         server.broadcastChat(null, p.name + " has been revived.");
         server.broadcastPlayers();
         out("revived " + p.name);
@@ -159,14 +208,23 @@ final class Commands {
         out("spawned " + m.name + " next to " + target.name);
     }
 
+    /** {@code give <player> <item name>} or {@code give <player> <category>/<entity>} (e.g. Boss/Orb). */
     private void give(String playerName, String itemName) {
         if (playerName == null || itemName == null) {
-            out("usage: give <player> <item name>");
+            out("usage: give <player> <item name | category/entity>");
             return;
         }
         ServerPlayer p = player(playerName);
         if (p == null) return;
-        Item item = Game.GetItemManager().FindItem(itemName, Item.ItemCondition.normal);
+        Item item;
+        int slash = itemName.indexOf('/');
+        if (slash > 0) {
+            com.interrupt.dungeoneer.entities.Entity e = com.interrupt.managers.EntityManager.instance
+                    .getEntity(itemName.substring(0, slash), itemName.substring(slash + 1));
+            item = e instanceof Item ? (Item) e : null;
+        } else {
+            item = Game.GetItemManager().FindItem(itemName, Item.ItemCondition.normal);
+        }
         if (item == null) {
             out("unknown item '" + itemName + "'");
             return;

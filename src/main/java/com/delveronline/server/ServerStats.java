@@ -157,6 +157,16 @@ public final class ServerStats {
         int min = Integer.MAX_VALUE;
         for (int i = 1; i < ticksPerSecond.size(); i++) min = Math.min(min, ticksPerSecond.get(i));
         sb.append(String.format(Locale.ROOT, "  \"ticksPerSecondMin\": %d,\n", min == Integer.MAX_VALUE ? -1 : min));
+        java.util.TreeMap<Integer, Integer> hist = new java.util.TreeMap<>();
+        for (int i = 1; i < ticksPerSecond.size(); i++) hist.merge(ticksPerSecond.get(i), 1, Integer::sum);
+        sb.append("  \"ticksPerSecondHistogram\": {");
+        boolean firstH = true;
+        for (Map.Entry<Integer, Integer> e : hist.entrySet()) {
+            if (!firstH) sb.append(", ");
+            firstH = false;
+            sb.append('"').append(e.getKey()).append("\": ").append(e.getValue());
+        }
+        sb.append("},\n");
         sb.append(String.format(Locale.ROOT, "  \"tickMillisP95\": %.3f,\n", tickMillisP95()));
         sb.append(String.format(Locale.ROOT, "  \"reports\": %d,\n", reports));
         sb.append(String.format(Locale.ROOT, "  \"samples\": %d,\n", samples));

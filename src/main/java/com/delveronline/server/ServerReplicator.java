@@ -325,12 +325,18 @@ public final class ServerReplicator {
         return m;
     }
 
-    /** The client finished loading the level: send every field once so it matches the server exactly. */
+    /**
+     * The client finished loading the level. The snapshot already carried every serialized field; send transient
+     * fields (not serialized) for everything, and all fields of dynamic gameplay entities, whose state the client's
+     * level initialization may have touched.
+     */
     void onClientLevelReady(ServerPlayer p) {
         View v = p.view;
         v.ready = true;
         for (Tracked t : byId.values()) {
-            if (!v.pendingSpawn.contains(t.netId)) v.markDirty(t, fullMask(t));
+            if (v.pendingSpawn.contains(t.netId)) continue;
+            boolean full = !t.visual && !t.isStatic && t.e.isDynamic;
+            v.markDirty(t, full ? fullMask(t) : transientMask(t.schema));
         }
     }
 
@@ -400,6 +406,7 @@ public final class ServerReplicator {
                     w.writeVarInt(f - prev);
                     prev = f;
                     w.writeRaw(fieldBuf.array(), 0, fieldBuf.size());
+                    t.schema.bytesSent[f] += fieldBuf.size() + 1;
                     sub[f >> 6] |= 1L << (f & 63);
                     any = true;
                 }

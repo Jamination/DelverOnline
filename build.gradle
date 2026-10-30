@@ -88,3 +88,17 @@ tasks.register('soakTest', Test) {
     maxHeapSize = '1g'
     testLogging { events 'passed', 'failed'; exceptionFormat 'full'; showStandardStreams = true }
 }
+
+tasks.register('dist', Copy) {
+    description = 'Assembles build/dist/DelverOnline: the mod jar, launch scripts and README.'
+    group = 'distribution'
+    dependsOn jar
+    into layout.buildDirectory.dir('dist/DelverOnline')
+    from(jar.archiveFile)
+    from('scripts') { filePermissions { unix(0755) } }
+    from('README.md')
+    doLast {
+        ant.zip(destfile: layout.buildDirectory.file('dist/DelverOnline.zip').get().asFile,
+                basedir: layout.buildDirectory.dir('dist').get().asFile, includes: 'DelverOnline/**')
+    }
+}

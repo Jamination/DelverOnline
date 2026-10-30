@@ -73,7 +73,7 @@ public final class ServerMain {
                 long now = System.nanoTime();
                 if (next - now > 0) {
                     LockSupport.parkNanos(next - now);
-                } else if (now - next > period * 30) {
+                } else if (now - next > period * 120) {
                     next = now;
                 }
             }

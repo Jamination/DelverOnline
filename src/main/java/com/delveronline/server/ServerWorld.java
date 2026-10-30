@@ -215,6 +215,7 @@ public final class ServerWorld {
             if (by != null && hasOrb(by)) {
                 escape();
             } else if (by != null) {
+                Mp.log(by.name + " tried to leave the dungeon without the orb");
                 by.sendMessage(StringManager.get("game.Game.cannotLeaveText"), 4f, 1f);
             }
             return true;
@@ -236,8 +237,11 @@ public final class ServerWorld {
         Array<Level> layout = Game.buildLevelLayout();
         if (num < 0 || num >= layout.size) throw new IllegalArgumentException("level must be 0.." + (layout.size - 1));
         int cur = levelNum();
-        if (num == cur) return;
+        boolean inSubArea = party.getCurrentTravelPath() != null;
+        if (num == cur && !inSubArea) return;
         prepareTransition(null);
+        // a jump leaves any warped-to sub-area (e.g. the intro) for good: forget the way back
+        while (party.getCurrentTravelPath() != null) party.popTravelPath();
         Stairs fake = new Stairs();
         fake.direction = num > cur ? Stairs.StairDirection.down : Stairs.StairDirection.up;
         // doLevelChange moves exactly one level; set the number so the step lands on the requested level
@@ -389,6 +393,12 @@ public final class ServerWorld {
         w.writeVarInt(tick);
         w.writeRaw(ids.array(), 0, ids.size());
         w.writeBytes(packed);
+        // Delver's tile serializer drops tile subclasses; the dungeon exit is an ExitTile
+        com.badlogic.gdx.utils.IntArray exits = new com.badlogic.gdx.utils.IntArray();
+        for (int i = 0; i < level.tiles.length; i++)
+            if (level.tiles[i] instanceof com.interrupt.dungeoneer.tiles.ExitTile) exits.add(i);
+        w.writeVarInt(exits.size);
+        for (int i = 0; i < exits.size; i++) w.writeVarInt(exits.get(i));
         Mp.log("level snapshot " + levelSerial + ": " + raw.length / 1024 + " KiB raw, " + packed.length / 1024 + " KiB sent, "
                 + repl.trackedCount() + " entities");
         return w.toByteArray();
@@ -590,6 +600,16 @@ public final class ServerWorld {
         Tile t = level.getTileOrNull(tx, ty);
         if (t == null) return;
         if (Math.abs(tx + 0.5f - p.proxy.x) > 2.5f || Math.abs(ty + 0.5f - p.proxy.y) > 2.5f) return;
+        if (t instanceof com.interrupt.dungeoneer.tiles.ExitTile && p.proxy.getCurrentTravelKey() == null) {
+            // the dungeon exit: same rule as the first level's up stairs, judged with the synced orb state
+            if (hasOrb(p)) {
+                escape();
+            } else {
+                Mp.log(p.name + " tried to leave the dungeon without the orb");
+                p.sendMessage(StringManager.get("tiles.ExitTile.cannotLeaveText"), 4f, 1f);
+            }
+            return;
+        }
         asPlayer(p, null, t::use);
     }
 

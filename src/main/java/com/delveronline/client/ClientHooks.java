@@ -98,8 +98,10 @@ public final class ClientHooks {
     public static boolean gameOverScreen(boolean escaped) {
         MpClient c = MpClient.current;
         if (c == null || !c.gameStarted) return false;
-        // only the server ends a multiplayer run
-        return escaped ? !c.allowWin : !c.allowGameOver;
+        if (escaped ? c.allowWin : c.allowGameOver) return false; // the server ended the run: show the native screen
+        // only the server ends a multiplayer run: tell it (e.g. the ending dialogue finished) and wait for its verdict
+        if (c.inGame()) c.sendGameEnd(escaped);
+        return true;
     }
 
     public static boolean gameStart(Game game) {
@@ -153,10 +155,40 @@ public final class ClientHooks {
     }
 
     public static void frameEnd() {
+        if (FPS_LOG) logFps();
         MpClient c = playing();
         if (c == null || Mp.headless || GameApplication.instance == null) return;
         if (!(GameApplication.instance.getScreen() instanceof GameScreen)) return;
+        c.nameTags.draw(c.avatars.values());
         c.chat.draw();
+    }
+
+    /** -Ddelveronline.fpslog=true: log in-game frames per second every 10 s (single player and multiplayer alike). */
+    private static final boolean FPS_LOG = Boolean.getBoolean("delveronline.fpslog");
+    private static long fpsWindowStart;
+    private static int fpsFrames;
+
+    private static void logFps() {
+        boolean inGame = GameApplication.instance != null && GameApplication.instance.getScreen() instanceof GameScreen;
+        long now = System.nanoTime();
+        if (!inGame) {
+            fpsWindowStart = 0;
+            return;
+        }
+        if (fpsWindowStart == 0) {
+            fpsWindowStart = now;
+            fpsFrames = 0;
+            return;
+        }
+        fpsFrames++;
+        if (now - fpsWindowStart >= 10_000_000_000L) {
+            double fps = fpsFrames * 1e9 / (now - fpsWindowStart);
+            String level = Game.instance != null && Game.instance.level != null ? String.valueOf(Game.instance.level.levelName) : "?";
+            Mp.log(String.format(java.util.Locale.ROOT, "EVENT fps %.2f mode=%s level=%s", fps,
+                    inMultiplayerGame() ? "multiplayer" : "singleplayer", level));
+            fpsWindowStart = now;
+            fpsFrames = 0;
+        }
     }
 
     public static boolean keyDown(int keycode) {

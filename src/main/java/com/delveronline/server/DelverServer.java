@@ -87,9 +87,10 @@ public final class DelverServer implements NetListener {
             world.newRun();
         }
         world.tick();
-        world.replicator().scan(world.level(), playersView);
-        world.replicator().flushEffects(playersView);
         if (world.tick % SNAPSHOT_EVERY == 0) {
+            // replication runs at the snapshot rate: discover spawns/removals/changes, then stream them
+            world.replicator().scan(world.level(), playersView);
+            world.replicator().flushEffects(playersView);
             for (ServerPlayer p : playersView) world.replicator().sendUpdates(p, world.tick);
             sendPlayerStates();
         }
@@ -231,8 +232,18 @@ public final class DelverServer implements NetListener {
             case Msg.C_DIED: handleDied(p); break;
             case Msg.C_LEVEL_LOADED: handleLevelLoaded(p, r); break;
             case Msg.C_STAIRS: handleStairs(p, r); break;
-            case Msg.C_TILE_USE: world.useTile(p, r.readSVarInt(), r.readSVarInt()); break;
+            case Msg.C_TILE_USE: {
+                int tx = r.readSVarInt(), ty = r.readSVarInt();
+                readRequesterPosition(p, r);
+                world.useTile(p, tx, ty);
+                break;
+            }
             case Msg.C_TRIGGER: handleTrigger(p, r); break;
+            case Msg.C_GAME_END: {
+                boolean won = r.readBool();
+                if (p.inWorld()) world.asPlayer(p, null, () -> world.gameOverScreen(won));
+                break;
+            }
             case Msg.C_REPORT: stats.onReport(p, r, world); break;
             default: throw new ProtocolException("unknown message " + type);
         }
@@ -268,7 +279,10 @@ public final class DelverServer implements NetListener {
     private void handleInventory(ServerPlayer p, ByteReader r) {
         byte[] bytes = r.readBytes();
         Object o = world.kryo().read(bytes);
-        if (!(o instanceof Object[])) return;
+        if (!(o instanceof Object[])) {
+            Mp.log("ignored inventory from " + p + ": " + (o == null ? "null" : o.getClass().getName()));
+            return;
+        }
         Object[] parts = (Object[]) o;
         if (parts.length >= 1 && parts[0] instanceof Array) p.proxy.inventory = (Array<Item>) parts[0];
         if (parts.length >= 2 && parts[1] instanceof java.util.HashMap) p.proxy.equippedItems = (java.util.HashMap<String, Item>) parts[1];
@@ -379,7 +393,10 @@ public final class DelverServer implements NetListener {
         if (!p.inWorld()) return;
         Level level = world.level();
         Stairs s = down ? level.down : level.up;
-        if (s == null) return;
+        if (s == null) {
+            Mp.log(p.name + " asked for stairs " + (down ? "down" : "up") + " but this level has none");
+            return;
+        }
         boolean near = Math.abs(s.x - p.proxy.x) < 2f && Math.abs(s.y - p.proxy.y) < 2f;
         if (!near && !config.allowCheats) return;
         world.asPlayer(p, s, () -> world.onStairs(s));

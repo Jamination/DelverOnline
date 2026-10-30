@@ -22,8 +22,8 @@ public final class ServerPlayer {
     /** Level serial the client has finished loading (0 = none yet). */
     public int loadedLevelSerial;
     public boolean dead;
-    /** Joined while the party was mid-level: spawns dead until the next level, like everyone else who died. */
-    public boolean spectatorUntilNextLevel;
+    /** Admin toggle: damage aimed at this player is ignored. */
+    public boolean god;
     public int lastStateSeq = -1;
     public long joinedMs = System.currentTimeMillis();
 

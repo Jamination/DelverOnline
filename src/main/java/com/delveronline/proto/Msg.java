@@ -33,6 +33,8 @@ public final class Msg {
     public static final int C_TILE_USE = 13;
     /** reliable: netId, value - client ran a local-only trigger (shop/dialogue) and the world effect must happen */
     public static final int C_TRIGGER = 14;
+    /** reliable: won - client-side UI (e.g. the ending dialogue) asked to end the run */
+    public static final int C_GAME_END = 15;
 
     // ---------------------------------------------------------------- server -> client
     /** reliable: playerId, serverName, tickRate */

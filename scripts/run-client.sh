@@ -28,6 +28,8 @@ mkdir -p "$DATA_DIR"
 # lets the Steam API identify the game when started outside of Steam
 [ -f "$DATA_DIR/steam_appid.txt" ] || cp "$DELVER_DIR/steam_appid.txt" "$DATA_DIR/" 2>/dev/null || true
 cd "$DATA_DIR"
-exec "$JAVA" -javaagent:"$JAR" -cp "$DELVER_DIR/delver.jar:$JAR" \
+# DELVERONLINE_JVM_OPTS: extra JVM options, e.g. -Ddelveronline.fpslog=true to log frames per second
+# shellcheck disable=SC2086
+exec "$JAVA" $DELVERONLINE_JVM_OPTS -javaagent:"$JAR" -cp "$DELVER_DIR/delver.jar:$JAR" \
     -Duser.country=US -Duser.language=en \
     com.interrupt.dungeoneer.DesktopStarter "$@"

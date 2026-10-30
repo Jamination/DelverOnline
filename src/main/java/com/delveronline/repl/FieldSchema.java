@@ -30,7 +30,17 @@ public final class FieldSchema {
             "Entity.owner", "Entity.editorState", "Entity.outOfDrawDistance", "Entity.drawUpdateTimer", "Entity.skipTick",
             "Entity.physicsSleeping", "Entity.tickcount", "Entity.lastSplashTime", "Entity.lavaHurtTimer",
             "Entity.slideEffectTimer", "Entity.calcStepHeight", "Entity.lastZ", "Entity.wasOnFloorLast",
-            "Entity.inwater", "Entity.attachmentTransform"));
+            "Entity.inwater", "Entity.attachmentTransform",
+            // monster AI bookkeeping: changes every tick, never drawn
+            "Monster.tickcount", "Monster.targetx", "Monster.targety", "Monster.targetz", "Monster.last_targetx",
+            "Monster.last_targety", "Monster.last_picked_targetx", "Monster.last_picked_targety", "Monster.attacktimer",
+            "Monster.rangedAttackTimer", "Monster.regenManaTimer", "Monster.stuntime", "Monster.postAttackMoveWaitTimer",
+            "Monster.lastWander", "Monster.waiting", "Monster.bleedTimer", "Monster.stuckTime", "Monster.stuckWanderTimer",
+            "Monster.alertValue"));
+
+    /** Per-machine caches and scratch vectors, whatever class declares them. */
+    private static final Set<String> DENY_NAMES = new HashSet<>(Arrays.asList(
+            "lastMeshFile", "lastTextureFile", "dirWork", "workVec", "tempVec1", "tempVec2", "tempVec3", "tempVec4"));
 
     /** Float fields that represent discrete values and must not be interpolated. */
     private static final Set<String> NO_INTERP = new HashSet<>(Arrays.asList(
@@ -42,6 +52,8 @@ public final class FieldSchema {
     public final Field[] fields;
     public final Kind[] kinds;
     public final boolean[] interpolate;
+    /** Bytes sent per field (server-side diagnostics, see the 'fieldstats' console command). */
+    public final long[] bytesSent;
     /** Index of x, y, z (always present for entities). */
     public final int ix, iy, iz;
 
@@ -56,7 +68,9 @@ public final class FieldSchema {
             for (Field f : declared) {
                 int m = f.getModifiers();
                 if (Modifier.isStatic(m) || Modifier.isFinal(m) || f.isSynthetic()) continue;
-                if (DENY.contains(c.getSimpleName() + "." + f.getName())) continue;
+                if (DENY.contains(c.getSimpleName() + "." + f.getName()) || DENY_NAMES.contains(f.getName())) continue;
+                // scratch state: private transient fields and Delver's "t_" temporaries
+                if ((Modifier.isPrivate(m) && Modifier.isTransient(m)) || f.getName().startsWith("t_")) continue;
                 if (kindOf(f) == null) continue;
                 f.setAccessible(true);
                 out.add(f);
@@ -65,6 +79,7 @@ public final class FieldSchema {
         fields = out.toArray(new Field[0]);
         kinds = new Kind[fields.length];
         interpolate = new boolean[fields.length];
+        bytesSent = new long[fields.length];
         int x = -1, y = -1, z = -1;
         for (int i = 0; i < fields.length; i++) {
             Field f = fields[i];
@@ -80,6 +95,11 @@ public final class FieldSchema {
         ix = x;
         iy = y;
         iz = z;
+    }
+
+    /** All schemas built so far. */
+    public static java.util.Collection<FieldSchema> all() {
+        return CACHE.values();
     }
 
     public static FieldSchema of(Class<?> type) {

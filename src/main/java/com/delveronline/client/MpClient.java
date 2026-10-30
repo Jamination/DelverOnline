@@ -62,6 +62,7 @@ public final class MpClient implements NetListener {
     final NetKryo kryo = new NetKryo();
     final ClientReplicator repl = new ClientReplicator(this, kryo);
     final ChatOverlay chat = new ChatOverlay();
+    final NameTags nameTags = new NameTags();
     private final ArrayDeque<Object[]> inbox = new ArrayDeque<>();
     private LevelData pendingLevel;
     boolean gameStarted;
@@ -91,6 +92,7 @@ public final class MpClient implements NetListener {
 
     static final class LevelData {
         int serial, levelNum, tick;
+        int[] exitTiles;
         String name;
         float x, y, z, rot;
         int[][] ids;
@@ -136,6 +138,17 @@ public final class MpClient implements NetListener {
 
     public ChatOverlay chat() {
         return chat;
+    }
+
+    /** "name x y z yaw dead" for every remote player we currently see (diagnostics and tests). */
+    public String describeRemotePlayers() {
+        StringBuilder sb = new StringBuilder();
+        for (RemoteAvatar a : avatars.values()) {
+            if (!a.hasState()) continue;
+            sb.append(String.format(java.util.Locale.ROOT, "%s %.2f %.2f %.2f %.2f %s;", a.playerName, a.x, a.y, a.z, a.viewYaw(),
+                    a.isDead() ? "dead" : "alive"));
+        }
+        return sb.toString();
     }
 
     public boolean inGame() {
@@ -356,6 +369,8 @@ public final class MpClient implements NetListener {
             d.ids[l] = ids;
         }
         d.packed = r.readBytes();
+        d.exitTiles = new int[r.readVarInt()];
+        for (int i = 0; i < d.exitTiles.length; i++) d.exitTiles[i] = r.readVarInt();
         return d;
     }
 
@@ -420,6 +435,12 @@ public final class MpClient implements NetListener {
         Player player = game.player;
         for (RemoteAvatar a : avatars.values()) a.removeFrom(game.level);
         Level level = repl.buildLevel(d.serial, d.ids, d.packed);
+        for (int idx : d.exitTiles) {
+            if (idx < 0 || idx >= level.tiles.length || level.tiles[idx] == null) continue;
+            com.interrupt.dungeoneer.tiles.ExitTile exit = new com.interrupt.dungeoneer.tiles.ExitTile();
+            com.interrupt.dungeoneer.tiles.Tile.copy(level.tiles[idx], exit);
+            level.tiles[idx] = exit;
+        }
         game.level = level;
         DelverOnlineAccess.setLevelNum(game, d.levelNum);
         player.x = d.x;
@@ -784,7 +805,13 @@ public final class MpClient implements NetListener {
     }
 
     void sendTileUse(int x, int y) {
-        send(new ByteWriter(8).writeByte(Msg.C_TILE_USE).writeSVarInt(x).writeSVarInt(y));
+        ByteWriter w = new ByteWriter(24).writeByte(Msg.C_TILE_USE).writeSVarInt(x).writeSVarInt(y);
+        writePosition(w);
+        send(w);
+    }
+
+    void sendGameEnd(boolean won) {
+        send(new ByteWriter(4).writeByte(Msg.C_GAME_END).writeBool(won));
     }
 
     void sendStairs(boolean down) {

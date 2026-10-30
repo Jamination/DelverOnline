@@ -22,6 +22,8 @@ public class RemoteAvatar extends Entity {
     public final int playerId;
     public String playerName;
 
+    /** Vertical lift of carried item sprites relative to the avatar (item sprites sit on the floor otherwise). */
+    private static final float HAND_HEIGHT = 0.36f;
     // two most recent states for interpolation
     private final PlayerState prev = new PlayerState();
     private final PlayerState next = new PlayerState();
@@ -51,7 +53,7 @@ public class RemoteAvatar extends Entity {
             this.isSolid = false;
             this.isDynamic = true;
             this.hidden = true;
-            this.scale = 0.55f;
+            this.scale = 0.7f;
             this.shadowType = ShadowType.NONE;
             this.floating = true;
         }
@@ -232,16 +234,17 @@ public class RemoteAvatar extends Entity {
             }
         }
         float swing = attackAnim > 0f ? (float) Math.sin(attackAnim * Math.PI) : 0f;
-        held.x = x + rx * (0.17f + 0.08f * swing);
-        held.y = y + ry * (0.17f + 0.08f * swing);
+        held.x = x + rx * (0.24f + 0.08f * swing);
+        held.y = y + ry * (0.24f + 0.08f * swing);
         held.z = z;
-        held.yOffset = yOffset + 0.12f + 0.12f * swing;
+        // item sprites are anchored lower than character sprites: lift them to hand height
+        held.yOffset = yOffset + HAND_HEIGHT + 0.12f * swing;
         held.roll = -35f + 110f * swing;
         held.color = color;
-        offhand.x = x - rx * 0.17f;
-        offhand.y = y - ry * 0.17f;
+        offhand.x = x - rx * 0.24f;
+        offhand.y = y - ry * 0.24f;
         offhand.z = z;
-        offhand.yOffset = yOffset + 0.1f;
+        offhand.yOffset = yOffset + HAND_HEIGHT - 0.02f;
         offhand.roll = 10f;
         offhand.color = color;
     }

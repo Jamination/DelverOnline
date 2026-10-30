@@ -67,6 +67,7 @@ public final class BotMain {
         final Random rnd;
         final ConcurrentLinkedQueue<String> commands = new ConcurrentLinkedQueue<>();
         boolean wander = true;
+        int swingFrames;
         boolean connected;
         float turnTimer, attackTimer, useTimer, jumpTimer;
         float turnRate;
@@ -128,7 +129,14 @@ public final class BotMain {
                 }
                 if (c != null && c.inGame()) connected = true;
             }
-            if (game != null && game.player != null && game.level != null && getScreen() == mainScreen) drive(game.player);
+            if (game != null && game.player != null && game.level != null && getScreen() == mainScreen) {
+                drive(game.player);
+                if (swingFrames > 0) {
+                    // hold attack long enough for a charged swing, then release
+                    swingFrames--;
+                    press(Actions.Action.ATTACK, swingFrames > 5);
+                }
+            }
             super.render();
             frames++;
             fpsWindowFrames++;
@@ -152,11 +160,88 @@ public final class BotMain {
                     wander = p.length > 1 && p[1].equals("on");
                     if (!wander) release();
                     break;
+                case "escape": {
+                    // leave the dungeon the way a player would: Delver's exit tile, else the up stairs
+                    if (!ClientHooks.inMultiplayerGame() || Game.instance == null || Game.instance.level == null) break;
+                    com.interrupt.dungeoneer.game.Level lv = Game.instance.level;
+                    Player pl = Game.instance.player;
+                    boolean used = false;
+                    for (int i = 0; i < lv.tiles.length && !used; i++) {
+                        if (!(lv.tiles[i] instanceof com.interrupt.dungeoneer.tiles.ExitTile)) continue;
+                        int tx = i % lv.width, ty = i / lv.width;
+                        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+                        for (int[] dd : dirs) {
+                            com.interrupt.dungeoneer.tiles.Tile n = lv.getTileOrNull(tx + dd[0], ty + dd[1]);
+                            if (n != null && !n.blockMotion) {
+                                pl.x = tx + dd[0] + 0.5f;
+                                pl.y = ty + dd[1] + 0.5f;
+                                pl.z = n.getFloorHeight() + 0.5f;
+                                break;
+                            }
+                        }
+                        lv.tiles[i].use();
+                        used = true;
+                        event("escape via exit tile");
+                    }
+                    if (!used && lv.up != null) {
+                        pl.x = lv.up.x;
+                        pl.y = lv.up.y;
+                        Game.instance.changeLevel(lv.up);
+                        event("escape via stairs");
+                    } else if (!used) {
+                        event("escape impossible: no exit");
+                    }
+                    break;
+                }
                 case "stairs":
                     if (ClientHooks.inMultiplayerGame() && Game.instance != null) {
                         Game.instance.changeLevel(stairs(p.length > 1 && p[1].equals("up")));
                     }
                     break;
+                case "tp": {
+                    Player pl = Game.instance == null ? null : Game.instance.player;
+                    String[] xyz = p.length > 1 ? p[1].split("\\s+") : new String[0];
+                    if (pl == null || xyz.length < 3) break;
+                    pl.x = Float.parseFloat(xyz[0]);
+                    pl.y = Float.parseFloat(xyz[1]);
+                    pl.z = Float.parseFloat(xyz[2]);
+                    if (xyz.length > 3) pl.rot = Float.parseFloat(xyz[3]);
+                    pl.xa = pl.ya = pl.za = 0f;
+                    event(String.format(java.util.Locale.ROOT, "pos %.2f %.2f %.2f %.2f", pl.x, pl.y, pl.z, pl.rot));
+                    break;
+                }
+                case "others": {
+                    MpClient mc = MpClient.current();
+                    if (mc != null) event("others " + mc.describeRemotePlayers());
+                    break;
+                }
+                case "chatlines": {
+                    MpClient mc = MpClient.current();
+                    if (mc != null) event("chatlines " + mc.chat().visibleLineCount());
+                    break;
+                }
+                case "swing":
+                    swingFrames = 30;
+                    break;
+                case "pos": {
+                    Player pl = Game.instance == null ? null : Game.instance.player;
+                    if (pl != null) event(String.format(java.util.Locale.ROOT, "pos %.2f %.2f %.2f %.2f", pl.x, pl.y, pl.z, pl.rot));
+                    break;
+                }
+                case "equip": {
+                    // wield the first inventory item of the given class (e.g. Wand, Sword)
+                    Player pl = Game.instance == null ? null : Game.instance.player;
+                    if (pl == null || p.length < 2) break;
+                    for (int i = 0; i < pl.inventory.size; i++) {
+                        com.interrupt.dungeoneer.entities.Item it = pl.inventory.get(i);
+                        if (it != null && isA(it, p[1])) {
+                            pl.equip(it);
+                            event("equipped " + it.getClass().getSimpleName());
+                            break;
+                        }
+                    }
+                    break;
+                }
                 case "interact":
                     interact(p.length > 1 ? p[1] : "");
                     break;
@@ -262,6 +347,7 @@ public final class BotMain {
             sb.append(String.format(java.util.Locale.ROOT, "at %.2f,%.2f active=%s", e.x, e.y, e.isActive));
             if (e instanceof com.interrupt.dungeoneer.entities.Actor) sb.append(" hp=").append(((com.interrupt.dungeoneer.entities.Actor) e).hp);
             if (e instanceof com.interrupt.dungeoneer.entities.Door) sb.append(" door=").append(((com.interrupt.dungeoneer.entities.Door) e).doorState);
+            if (e instanceof com.interrupt.dungeoneer.entities.Stairs) sb.append(" dir=").append(((com.interrupt.dungeoneer.entities.Stairs) e).direction);
             return sb.toString();
         }
 

@@ -130,43 +130,79 @@ public final class ChatOverlay {
             stage.addActor(table);
             builtWidth = w;
             builtHeight = h;
+            builtLines = new ArrayList<>();
+            builtStatus = null;
+            labels.clear();
+            builtOpen = !open; // force a layout pass
         }
-        stage.getViewport().update(w, h, true);
-        table.clearChildren();
-        table.pad(6f, 8f, 64f, 8f);
         long now = System.currentTimeMillis();
         List<Line> shown = snapshot();
         int from = Math.max(0, shown.size() - MAX_LINES);
+        // what is on screen: status, the visible lines, the input line
+        List<Line> visible = new ArrayList<>(MAX_LINES);
+        for (int i = from; i < shown.size(); i++) {
+            Line l = shown.get(i);
+            if (open || (now - l.atMs) / 1000f < VISIBLE_SECONDS + FADE_SECONDS) visible.add(l);
+        }
+        if (!open && status == null && visible.isEmpty()) return; // nothing to draw: no cost while chat is idle
+        stage.getViewport().update(w, h, true);
+        String inputText = open ? "Say: " + input + ((now / 500) % 2 == 0 ? "_" : " ") : null;
+        if (!visible.equals(builtLines) || open != builtOpen || !java.util.Objects.equals(status, builtStatus)) {
+            rebuild(skin, visible);
+        }
+        for (Line l : visible) {
+            float age = (now - l.atMs) / 1000f;
+            float alpha = open ? 1f : (age < VISIBLE_SECONDS ? 1f : Math.max(0f, 1f - (age - VISIBLE_SECONDS) / FADE_SECONDS));
+            Label label = labels.get(l);
+            if (label != null) label.getColor().a = alpha;
+        }
+        if (inputLabel != null && inputText != null && !inputText.contentEquals(inputLabel.getText())) inputLabel.setText(inputText);
+        stage.act();
+        stage.draw();
+    }
+
+    private final java.util.IdentityHashMap<Line, Label> labels = new java.util.IdentityHashMap<>();
+    private List<Line> builtLines = new ArrayList<>();
+    private boolean builtOpen;
+    private String builtStatus;
+    private Label inputLabel;
+
+    /** Lays the table out again; only when the set of shown lines, the status or the open state changed. */
+    private void rebuild(Skin skin, List<Line> visible) {
+        table.clearChildren();
+        table.pad(6f, 8f, 64f, 8f);
         if (status != null) {
             Label s = new Label(status, skin);
             s.setColor(new Color(1f, 0.85f, 0.4f, 1f));
             table.add(s).left().padBottom(6f);
             table.row();
         }
-        for (int i = from; i < shown.size(); i++) {
-            Line l = shown.get(i);
-            float age = (now - l.atMs) / 1000f;
-            float alpha = open ? 1f : (age < VISIBLE_SECONDS ? 1f : Math.max(0f, 1f - (age - VISIBLE_SECONDS) / FADE_SECONDS));
-            if (alpha <= 0f) continue;
-            Label label = new Label(l.from == null ? l.text : l.from + ": " + l.text, skin);
-            if (l.from == null) {
-                label.setColor(0.75f, 0.75f, 0.85f, alpha);
-            } else {
-                label.setColor(1f, 1f, 1f, alpha);
+        labels.keySet().retainAll(new java.util.HashSet<>(visible));
+        for (Line l : visible) {
+            Label label = labels.get(l);
+            if (label == null) {
+                label = new Label(l.from == null ? l.text : l.from + ": " + l.text, skin);
+                if (l.from == null) {
+                    label.setColor(0.75f, 0.75f, 0.85f, 1f);
+                } else {
+                    label.setColor(1f, 1f, 1f, 1f);
+                }
+                label.setWrap(true);
+                labels.put(l, label);
             }
-            label.setWrap(true);
             table.add(label).left().width(Math.min(stage.getWidth() * 0.5f, 360f));
             table.row();
         }
+        inputLabel = null;
         if (open) {
-            boolean blink = (now / 500) % 2 == 0;
-            Label in = new Label("Say: " + input + (blink ? "_" : " "), skin);
-            in.setColor(1f, 0.9f, 0.5f, 1f);
-            table.add(in).left().padTop(2f);
+            inputLabel = new Label("Say: ", skin);
+            inputLabel.setColor(1f, 0.9f, 0.5f, 1f);
+            table.add(inputLabel).left().padTop(2f);
             table.row();
         }
-        stage.act();
-        stage.draw();
+        builtLines = new ArrayList<>(visible);
+        builtOpen = open;
+        builtStatus = status;
     }
 
     /** Lines currently visible without opening the chat (for tests: messages must fade out). */

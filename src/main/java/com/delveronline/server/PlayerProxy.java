@@ -49,12 +49,12 @@ public class PlayerProxy extends Player {
 
     @Override
     public void hit(float projx, float projy, int damage, float knockback, Weapon.DamageType damageType, Entity instigator) {
-        if (owner != null && !isDead) owner.sendHit(projx, projy, damage, knockback, damageType, instigator);
+        if (owner != null && !isDead && !owner.god) owner.sendHit(projx, projy, damage, knockback, damageType, instigator);
     }
 
     @Override
     public int takeDamage(int damage, Weapon.DamageType damageType, Entity instigator) {
-        if (owner != null && !isDead) owner.sendHit(0f, 0f, damage, 0f, damageType, instigator);
+        if (owner != null && !isDead && !owner.god) owner.sendHit(0f, 0f, damage, 0f, damageType, instigator);
         return damage;
     }
 
@@ -105,4 +105,23 @@ public class PlayerProxy extends Player {
     @Override
     public void updateDrawable() {
     }
+    /** The party travels together: a player's way back out of a sub-area is the party's. */
+    @Override
+    public com.interrupt.dungeoneer.game.TravelInfo getCurrentTravelPath() {
+        PlayerProxy party = partyPlayer();
+        return party != null ? party.getCurrentTravelPath() : super.getCurrentTravelPath();
+    }
+
+    @Override
+    public String getCurrentTravelKey() {
+        PlayerProxy party = partyPlayer();
+        return party != null ? party.getCurrentTravelKey() : super.getCurrentTravelKey();
+    }
+
+    private PlayerProxy partyPlayer() {
+        if (owner == null) return null;
+        PlayerProxy party = owner.server.world.party;
+        return party == this ? null : party;
+    }
+
 }
