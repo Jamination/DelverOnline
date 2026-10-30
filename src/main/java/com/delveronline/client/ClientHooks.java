@@ -1,0 +1,205 @@
+package com.delveronline.client;
+
+import com.badlogic.gdx.Input;
+import com.delveronline.Mp;
+import com.interrupt.dungeoneer.GameApplication;
+import com.interrupt.dungeoneer.entities.Entity;
+import com.interrupt.dungeoneer.entities.Item;
+import com.interrupt.dungeoneer.entities.Player;
+import com.interrupt.dungeoneer.entities.Stairs;
+import com.interrupt.dungeoneer.entities.items.Weapon;
+import com.interrupt.dungeoneer.game.Game;
+import com.interrupt.dungeoneer.game.Level;
+import com.interrupt.dungeoneer.overlays.OverlayManager;
+import com.interrupt.dungeoneer.screens.GameScreen;
+import com.interrupt.dungeoneer.tiles.Tile;
+
+import java.util.Arrays;
+
+/** Client-side implementations of the woven hooks. */
+public final class ClientHooks {
+    private ClientHooks() {}
+
+    private static MpClient session() {
+        return MpClient.current;
+    }
+
+    /** A multiplayer game has been started (until we are back at the main menu). */
+    public static boolean inMultiplayerGame() {
+        MpClient c = MpClient.current;
+        return Mp.isClient() && c != null && c.gameStarted;
+    }
+
+    private static MpClient playing() {
+        MpClient c = MpClient.current;
+        return c != null && c.inGame() ? c : null;
+    }
+
+    public static boolean isReplicated(Entity e) {
+        MpClient c = playing();
+        return c != null && c.repl.isReplicated(e);
+    }
+
+    public static boolean itemPickup(Item item, Player player) {
+        MpClient c = playing();
+        if (c == null) return false;
+        if (c.applyingPickup) return false;
+        // pickups are granted by the server (S_PICKUP); never take a replicated item on our own
+        return c.repl.isReplicated(item);
+    }
+
+    public static boolean entityHit(Entity self, float projx, float projy, int damage, float knockback,
+                                    Weapon.DamageType damageType, Entity instigator) {
+        MpClient c = playing();
+        if (c == null) return false;
+        int netId = c.repl.netIdOf(self);
+        if (netId == 0) return false;
+        c.sendHit(netId, projx, projy, damage, knockback, damageType);
+        return true;
+    }
+
+    public static boolean entityUse(Entity self, Player player, float projx, float projy) {
+        MpClient c = playing();
+        if (c == null) return false;
+        int netId = c.repl.netIdOf(self);
+        if (netId == 0) return false;
+        c.sendUse(netId, projx, projy);
+        return true;
+    }
+
+    public static boolean tileUse(Tile tile) {
+        MpClient c = playing();
+        if (c == null) return false;
+        Level level = Game.instance.level;
+        if (level == null || level.tiles == null) return true;
+        for (int i = 0; i < level.tiles.length; i++) {
+            if (level.tiles[i] == tile) {
+                c.sendTileUse(i % level.width, i / level.width);
+                return true;
+            }
+        }
+        return true;
+    }
+
+    public static boolean changeLevel(Stairs stairs) {
+        MpClient c = playing();
+        if (c == null) return false;
+        c.sendStairs(stairs == null || stairs.direction == Stairs.StairDirection.down);
+        return true;
+    }
+
+    public static boolean levelTrigger(Entity instigator, String triggersId, String value) {
+        MpClient c = playing();
+        if (c == null) return false;
+        if (!c.replayingTrigger && triggersId != null && !triggersId.isEmpty()) c.sendTrigger(instigator, triggersId, value);
+        return true;
+    }
+
+    public static boolean gameOverScreen(boolean escaped) {
+        MpClient c = MpClient.current;
+        if (c == null || !c.gameStarted) return false;
+        // only the server ends a multiplayer run
+        return escaped ? !c.allowWin : !c.allowGameOver;
+    }
+
+    public static boolean gameStart(Game game) {
+        MpClient c = MpClient.current;
+        if (c == null || c.gameStarted) return false;
+        return c.setupGame(game);
+    }
+
+    public static boolean onGameOver(Game game) {
+        MpClient c = MpClient.current;
+        if (c == null || !c.gameStarted) return false;
+        if (c.allowGameOver) return false;
+        // dead but the party lives on: watch the others until revived
+        c.startSpectating(game.player);
+        return true;
+    }
+
+    public static boolean levelTick(Level level, float delta) {
+        MpClient c = playing();
+        if (c == null) return false;
+        Player p = Game.instance.player;
+        c.repl.tick(level, delta, p);
+        c.updateSpectator(p);
+        return true;
+    }
+
+    public static void playerDied(Player player) {
+        MpClient c = playing();
+        if (c != null && Game.instance != null && player == Game.instance.player) c.onLocalDeath(player);
+    }
+
+    public static void playerAttacked(Player player) {
+        MpClient c = playing();
+        if (c != null && Game.instance != null && player == Game.instance.player) c.attackCount++;
+    }
+
+    public static boolean skipPlayerTick(Player player) {
+        MpClient c = playing();
+        return c != null && c.isSpectating() && Game.instance != null && player == Game.instance.player;
+    }
+
+    public static void frameStart() {
+        MpClient c = MpClient.current;
+        if (c == null) return;
+        try {
+            c.update();
+        } catch (RuntimeException e) {
+            Mp.log("network update failed: " + e);
+            e.printStackTrace();
+        }
+    }
+
+    public static void frameEnd() {
+        MpClient c = playing();
+        if (c == null || Mp.headless || GameApplication.instance == null) return;
+        if (!(GameApplication.instance.getScreen() instanceof GameScreen)) return;
+        c.chat.draw();
+    }
+
+    public static boolean keyDown(int keycode) {
+        MpClient c = playing();
+        if (c == null) return false;
+        ChatOverlay chat = c.chat;
+        if (chat.isOpen()) {
+            if (keycode == Input.Keys.ESCAPE) Game.ignoreEscape = true;
+            String msg = chat.keyDown(keycode);
+            if (msg != null) c.sendChat(msg);
+            return true;
+        }
+        if (keycode == ChatOverlay.chatKey() && !overlayCapturesInput()) {
+            chat.open();
+            if (GameApplication.instance != null) Arrays.fill(GameApplication.instance.input.keysDown, false);
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean keyUp(int keycode) {
+        return false; // releases always reach the game so no key stays stuck down
+    }
+
+    public static boolean keyTyped(char ch) {
+        MpClient c = playing();
+        if (c == null || !c.chat.isOpen()) return false;
+        c.chat.keyTyped(ch);
+        return true;
+    }
+
+    private static boolean overlayCapturesInput() {
+        OverlayManager om = OverlayManager.instance;
+        return om != null && om.current() != null && om.current().catchInput;
+    }
+
+    public static void mainMenuContent(Object screen) {
+        MpClient c = MpClient.current;
+        if (c != null && c.gameStarted) {
+            // back at the menu after a multiplayer game: leave the server and restore single-player behaviour
+            c.disconnect("Left the game");
+            c.finishSession();
+        }
+        MultiplayerMenu.install(screen);
+    }
+}

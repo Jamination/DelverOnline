@@ -1,0 +1,90 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.delveronline'
+version = '1.0.0'
+
+// Location of the Steam Delver install. Only read from; never modified.
+def defaultDelverDir = System.getProperty('os.name').toLowerCase().contains('win')
+        ? 'C:/Program Files (x86)/Steam/steamapps/common/Delver'
+        : "${System.getProperty('user.home')}/.local/share/Steam/steamapps/common/Delver"
+ext.delverDir = (project.findProperty('delverDir') ?: System.getenv('DELVER_DIR') ?: defaultDelverDir)
+ext.delverJar = file("${delverDir}/delver.jar")
+if (!delverJar.exists()) {
+    throw new GradleException("delver.jar not found at ${delverJar}. Pass -PdelverDir=<Delver install dir>.")
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    bundled
+    implementation.extendsFrom bundled
+}
+
+dependencies {
+    compileOnly files(delverJar)
+    bundled 'net.bytebuddy:byte-buddy:1.14.18'
+    bundled('com.badlogicgames.gdx:gdx-backend-headless:1.9.9') { transitive = false }
+
+    testImplementation files(delverJar)
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:-options']
+}
+
+jar {
+    archiveFileName = 'delveronline.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from { configurations.bundled.collect { it.isDirectory() ? it : zipTree(it) } } {
+        exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/versions/**', 'module-info.class'
+    }
+    manifest {
+        attributes(
+            'Premain-Class': 'com.delveronline.agent.DelverOnlineAgent',
+            'Main-Class': 'com.delveronline.server.ServerMain',
+            'Can-Retransform-Classes': 'true',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+test {
+    useJUnitPlatform()
+    dependsOn jar
+    systemProperty 'delveronline.jar', jar.archiveFile.get().asFile.absolutePath
+    systemProperty 'delveronline.delverJar', delverJar.absolutePath
+    systemProperty 'delveronline.delverDir', file(delverDir).absolutePath
+    systemProperty 'delveronline.projectDir', projectDir.absolutePath
+    maxHeapSize = '1g'
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+        showStandardStreams = project.hasProperty('showOutput')
+    }
+    // Long-running soak test is opt-in: ./gradlew soakTest
+    useJUnitPlatform { excludeTags 'soak', 'gui' }
+}
+
+tasks.register('soakTest', Test) {
+    description = 'Runs the 10 minute, 8 bot headless soak test.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    dependsOn jar
+    useJUnitPlatform { includeTags 'soak' }
+    systemProperty 'delveronline.jar', jar.archiveFile.get().asFile.absolutePath
+    systemProperty 'delveronline.delverJar', delverJar.absolutePath
+    systemProperty 'delveronline.delverDir', file(delverDir).absolutePath
+    systemProperty 'delveronline.projectDir', projectDir.absolutePath
+    systemProperty 'delveronline.soakSeconds', project.findProperty('soakSeconds') ?: '600'
+    maxHeapSize = '1g'
+    testLogging { events 'passed', 'failed'; exceptionFormat 'full'; showStandardStreams = true }
+}
