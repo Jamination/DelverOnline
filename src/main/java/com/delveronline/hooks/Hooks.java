@@ -62,6 +62,10 @@ public final class Hooks {
         return Mp.isClient() && ClientHooks.inMultiplayerGame();
     }
 
+    public static boolean gameManagerTick(Object manager, float delta) {
+        return Mp.isClient() && ClientHooks.gameManagerTick((com.interrupt.dungeoneer.GameManager) manager, delta);
+    }
+
     public static boolean itemPickup(Item item, Player player) {
         if (Mp.isServer()) return ServerHooks.itemPickup(item, player);
         if (Mp.isClient()) return ClientHooks.itemPickup(item, player);

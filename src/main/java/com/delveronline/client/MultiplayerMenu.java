@@ -70,6 +70,7 @@ public final class MultiplayerMenu {
             mp.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
+                    click();
                     showPanel(screen, null);
                 }
             });
@@ -84,6 +85,11 @@ public final class MultiplayerMenu {
             pendingMessage = null;
             showPanel(screen, msg);
         }
+    }
+
+    /** The button sound of Delver's own main menu (Play, save slots). */
+    private static void click() {
+        Audio.playSound("/ui/ui_button_click.mp3", 0.3f);
     }
 
     private static TextField.TextFieldStyle fieldStyle(Skin skin) {
@@ -167,6 +173,7 @@ public final class MultiplayerMenu {
             full.pack();
 
             final Runnable doJoin = () -> {
+                click();
                 MpClient existing = MpClient.current();
                 if (existing != null && existing.phase != MpClient.Phase.CLOSED) return;
                 String addr = address.getText().trim();
@@ -190,7 +197,6 @@ public final class MultiplayerMenu {
                 s.lastServer = addr;
                 s.playerName = name.getText().trim();
                 s.save();
-                Audio.playSound("/ui/ui_button_click.mp3", 0.3f);
                 status.setColor(Color.WHITE);
                 MpClient c = MpClient.connect(host, port, name.getText().trim());
                 watch(stage, status, c);
@@ -204,6 +210,7 @@ public final class MultiplayerMenu {
             back.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
+                    click();
                     MpClient c = MpClient.current();
                     if (c != null && !c.gameStarted) c.disconnect("cancelled");
                     screen.makeContent();

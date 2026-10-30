@@ -14,9 +14,9 @@ and the multiplayer code is woven in at start-up by a Java agent, so the Steam i
   interpolated, and every interaction runs on the server for everyone (hits, door/lever/stairs use, pickups, thrown
   items, projectiles, spells, shop/dialogue triggers). Sounds and particle effects are replicated too.
 - **The party travels together**: when anyone takes stairs or a warp, everyone moves to the new level.
-- **Death and spectating**: a dead player watches the others (click or ←/→ switches who). When the party reaches a
-  dungeon level it has never been to, everyone dead is revived. When every player is dead, the run ends with
-  Delver's own game-over screen, exactly like single player.
+- **Death and spectating**: a dead player watches the others (click or ←/→ switches who; Escape still opens the pause
+  menu). When the party reaches a dungeon level it has never been to, everyone dead is revived. When every player is
+  dead, the run ends with Delver's own game-over screen, exactly like single player.
 - **Other players** look like Delver's hooded adventurer NPC. They walk with a bob, play idle animations and swing
   their weapon when attacking. They flash red when hurt and fall over when they die. Their held and off-hand
   items are visible, and their name floats above them while they are in sight.

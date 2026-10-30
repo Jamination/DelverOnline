@@ -1,8 +1,11 @@
 package com.delveronline.client;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.delveronline.Mp;
+import com.interrupt.api.steam.SteamApi;
 import com.interrupt.dungeoneer.GameApplication;
+import com.interrupt.dungeoneer.GameManager;
 import com.interrupt.dungeoneer.entities.Entity;
 import com.interrupt.dungeoneer.entities.Item;
 import com.interrupt.dungeoneer.entities.Player;
@@ -10,10 +13,14 @@ import com.interrupt.dungeoneer.entities.Stairs;
 import com.interrupt.dungeoneer.entities.items.Weapon;
 import com.interrupt.dungeoneer.game.Game;
 import com.interrupt.dungeoneer.game.Level;
+import com.interrupt.dungeoneer.input.Actions;
 import com.interrupt.dungeoneer.overlays.OverlayManager;
+import com.interrupt.dungeoneer.overlays.PauseOverlay;
 import com.interrupt.dungeoneer.screens.GameScreen;
 import com.interrupt.dungeoneer.tiles.Tile;
+import com.interrupt.utils.Logger;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 
 /** Client-side implementations of the woven hooks. */
@@ -141,6 +148,52 @@ public final class ClientHooks {
     public static boolean skipPlayerTick(Player player) {
         MpClient c = playing();
         return c != null && c.isSpectating() && Game.instance != null && player == Game.instance.player;
+    }
+
+    /** Vanilla's 1/3-frame tick accumulator (private float GameManager.time_since_last_tick). */
+    private static Field tickTimer;
+
+    /**
+     * Replaces GameManager.tick while an overlay is open or the local player is spectating. The shared world never
+     * pauses in multiplayer, so this method keeps running under overlays, which never happens in single player:
+     * with Escape still held on the frame after the pause menu opened, vanilla's Escape handling popped it again at
+     * once. Here an open overlay handles Escape itself (as in single player), and a spectator, whom vanilla treats as
+     * dead and denies the pause menu, can open it to leave the game.
+     */
+    public static boolean gameManagerTick(GameManager manager, float delta) {
+        if (!inMultiplayerGame()) return false;
+        Game game = GameManager.getGame();
+        if (game == null || game.player == null) return false;
+        OverlayManager overlays = OverlayManager.instance;
+        boolean overlayOpen = overlays != null && overlays.current() != null;
+        if (!overlayOpen && !game.player.isDead) return false; // vanilla behaves exactly as in single player
+        try {
+            if (tickTimer == null) {
+                Field f = GameManager.class.getDeclaredField("time_since_last_tick");
+                f.setAccessible(true);
+                tickTimer = f;
+            }
+            float elapsed = tickTimer.getFloat(manager) + delta;
+            if (elapsed < 0.3333333f) {
+                tickTimer.setFloat(manager, elapsed);
+                return true;
+            }
+            tickTimer.setFloat(manager, 0f);
+            GameManager.renderer.clearLights();
+            if (!overlayOpen && overlays != null) {
+                boolean pause = Gdx.input.isKeyPressed(Input.Keys.ESCAPE)
+                        || GameApplication.instance.input.gamepadManager.controllerState.buttonEvents.contains(Actions.Action.PAUSE, true);
+                if (!pause) Game.ignoreEscape = false;
+                else if (!Game.ignoreEscape) overlays.push(new PauseOverlay()); // push sets ignoreEscape until released
+            }
+            if (manager.running) game.tick(elapsed);
+            SteamApi.api.runCallbacks();
+        } catch (Exception e) {
+            // same failure handling as the vanilla method
+            Logger.logExceptionToFile(e);
+            Gdx.app.exit();
+        }
+        return true;
     }
 
     public static void frameStart() {

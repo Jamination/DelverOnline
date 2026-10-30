@@ -248,6 +248,13 @@ public final class Advices {
         }
     }
 
+    public static final class GameManagerTick {
+        @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
+        static boolean enter(@Advice.This Object manager, @Advice.Argument(0) float delta) {
+            return Hooks.gameManagerTick(manager, delta);
+        }
+    }
+
     public static final class KeyDown {
         @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
         static boolean enter(@Advice.Argument(0) int keycode) {

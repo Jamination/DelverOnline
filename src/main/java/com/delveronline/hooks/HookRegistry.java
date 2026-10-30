@@ -90,6 +90,7 @@ public final class HookRegistry {
 
         // --- frame, input and UI
         h.add(new Hook(type("com.badlogic.gdx.Game"), named("render").and(takesArguments(0)), "AppRender"));
+        h.add(new Hook(type(D + "GameManager"), named("tick").and(takesArguments(float.class)), "GameManagerTick"));
         h.add(new Hook(type(D + "GameInput"), named("keyDown"), "KeyDown"));
         h.add(new Hook(type(D + "GameInput"), named("keyUp"), "KeyUp"));
         h.add(new Hook(type(D + "GameInput"), named("keyTyped"), "KeyTyped"));
