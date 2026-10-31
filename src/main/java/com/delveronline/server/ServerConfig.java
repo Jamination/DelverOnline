@@ -13,6 +13,8 @@ public final class ServerConfig {
     public String statsFile = null;
     /** Read commands from standard input. */
     public boolean console = true;
+    /** {@code --mods}: "all" (default), "none", or a comma-separated list; see {@code ModDiscovery.select}. */
+    public String mods = "all";
 
     public static ServerConfig parse(String[] args) {
         ServerConfig c = new ServerConfig();
@@ -27,6 +29,7 @@ public final class ServerConfig {
                 case "--allow-cheats": c.allowCheats = true; break;
                 case "--stats-file": c.statsFile = args[++i]; break;
                 case "--no-console": c.console = false; break;
+                case "--mods": c.mods = args[++i]; break;
                 case "--help":
                 case "-h":
                     System.out.println("Delver Online dedicated server\n"
@@ -35,6 +38,10 @@ public final class ServerConfig {
                             + "  --max-players <1-8>      (default 8)\n"
                             + "  --allow-cheats           let clients jump between levels (testing)\n"
                             + "  --stats-file <path>      write a JSON performance summary on exit\n"
+                            + "  --mods all|none|<list>   mods to run (default all: Delver's installed Workshop\n"
+                            + "                           mods and its mods/ folder). A list holds Workshop IDs,\n"
+                            + "                           mod titles, folder names or folder paths, comma-separated.\n"
+                            + "                           Players need exactly the same mods to join.\n"
                             + "  --no-console             do not read commands from stdin");
                     System.exit(0);
                     break;

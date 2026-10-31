@@ -44,6 +44,9 @@ public final class ServerMain {
             public void create() {
                 try {
                     server.start();
+                } catch (IllegalArgumentException e) {
+                    System.err.println("Server failed to start: " + e.getMessage());
+                    System.exit(2);
                 } catch (Exception e) {
                     System.err.println("Server failed to start: " + e);
                     e.printStackTrace();

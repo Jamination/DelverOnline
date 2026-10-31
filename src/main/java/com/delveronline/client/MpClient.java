@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.delveronline.Mp;
+import com.delveronline.mods.ModManifest;
 import com.delveronline.net.ByteReader;
 import com.delveronline.net.ByteWriter;
 import com.delveronline.net.Connection;
@@ -216,7 +217,10 @@ public final class MpClient implements NetListener {
     public void onConnected(Connection connection) {
         status = "Joining...";
         String name = requestedName == null || requestedName.trim().isEmpty() ? "Adventurer" : requestedName.trim();
-        connection.sendReliable(new ByteWriter(64).writeByte(Msg.C_HELLO).writeVarInt(Mp.PROTOCOL_VERSION).writeString(name).toByteArray());
+        ByteWriter w = new ByteWriter(256).writeByte(Msg.C_HELLO).writeVarInt(Mp.PROTOCOL_VERSION).writeString(name);
+        // the server only lets in players running exactly its mods
+        ModManifest.current().write(w);
+        connection.sendReliable(w.toByteArray());
     }
 
     @Override
@@ -227,6 +231,13 @@ public final class MpClient implements NetListener {
 
     @Override
     public void onMessage(Connection connection, byte[] data, boolean reliable, int packetSeq) {
+        if (data.length > 0 && (data[0] & 0xff) == Msg.S_KICK) {
+            // the server closes the connection right after; keep its reason even if the inbox is paused
+            ByteReader r = new ByteReader(data);
+            r.readUByte();
+            closeReason = r.readString();
+            return;
+        }
         inbox.add(new Object[]{data, reliable, packetSeq});
     }
 
@@ -245,9 +256,6 @@ public final class MpClient implements NetListener {
                 phase = Phase.JOINING;
                 status = "Loading level...";
                 rememberServer();
-                break;
-            case Msg.S_KICK:
-                closeReason = r.readString();
                 break;
             case Msg.S_PLAYERS:
                 readPlayers(r);

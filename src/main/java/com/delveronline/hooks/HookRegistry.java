@@ -48,6 +48,8 @@ public final class HookRegistry {
 
     public static List<Hook> hooks() {
         List<Hook> h = new ArrayList<>();
+        // --- mods: same list, same order on server and clients
+        h.add(new Hook(type(D + "game.ModManager"), named("findMods"), "ModsFound"));
         // --- headless / server environment
         h.add(new Hook(type(D + "gfx.GlRenderer"), named("makeMapTextureForLevel"), "SkipWhenHeadless"));
         h.add(new Hook(type(AUDIO), named("playSound").and(takesArguments(String.class, float.class)), "Sound2"));

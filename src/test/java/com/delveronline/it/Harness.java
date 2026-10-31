@@ -30,6 +30,11 @@ final class Harness implements AutoCloseable {
     static final String DELVER_JAR = System.getProperty("delveronline.delverJar");
     static final String DELVER_DIR = System.getProperty("delveronline.delverDir");
     static final String PROJECT_DIR = System.getProperty("delveronline.projectDir", ".");
+    /**
+     * Mods for servers and bots (later {@code --mods} arguments override it): none by default, so tests see the plain
+     * game whatever is installed; {@code -PtestMods=all} runs them with the installed mods.
+     */
+    static final String MODS = System.getProperty("delveronline.mods", "none");
 
     final Path workDir;
     final int port;
@@ -74,7 +79,7 @@ final class Harness implements AutoCloseable {
 
     Proc server(String... extra) throws IOException {
         List<String> args = new ArrayList<>(Arrays.asList("--port", String.valueOf(port), "--allow-cheats", "--stats-file",
-                workDir.resolve("server-stats.json").toAbsolutePath().toString()));
+                workDir.resolve("server-stats.json").toAbsolutePath().toString(), "--mods", MODS));
         args.addAll(Arrays.asList(extra));
         Proc p = start("server", "com.delveronline.server.ServerMain", Arrays.asList("-Xmx1g"), args.toArray(new String[0]));
         p.await("listening on UDP", 90);
@@ -82,7 +87,7 @@ final class Harness implements AutoCloseable {
     }
 
     Proc bot(String name, String... extra) throws IOException {
-        List<String> args = new ArrayList<>(Arrays.asList("--port", String.valueOf(port), "--name", name));
+        List<String> args = new ArrayList<>(Arrays.asList("--port", String.valueOf(port), "--name", name, "--mods", MODS));
         args.addAll(Arrays.asList(extra));
         return start(name, "com.delveronline.bot.BotMain", Arrays.asList("-Xmx384m"), args.toArray(new String[0]));
     }

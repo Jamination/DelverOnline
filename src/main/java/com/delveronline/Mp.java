@@ -4,7 +4,7 @@ package com.delveronline;
 public final class Mp {
     public enum Mode { OFF, CLIENT, SERVER }
 
-    public static final int PROTOCOL_VERSION = 4;
+    public static final int PROTOCOL_VERSION = 5;
     public static final int DEFAULT_PORT = 27960;
     public static final int MAX_PLAYERS = 8;
 

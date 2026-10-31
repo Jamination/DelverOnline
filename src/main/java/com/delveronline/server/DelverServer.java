@@ -2,6 +2,8 @@ package com.delveronline.server;
 
 import com.badlogic.gdx.utils.Array;
 import com.delveronline.Mp;
+import com.delveronline.mods.ModDiscovery;
+import com.delveronline.mods.ModManifest;
 import com.delveronline.net.ByteReader;
 import com.delveronline.net.ByteWriter;
 import com.delveronline.net.Connection;
@@ -25,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.LockSupport;
@@ -88,6 +91,9 @@ public final class DelverServer implements NetListener {
         INSTANCE = this;
     }
 
+    /** The mods this server runs; players must have exactly these. */
+    ModManifest mods;
+
     public Collection<ServerPlayer> players() {
         return playersView;
     }
@@ -95,7 +101,15 @@ public final class DelverServer implements NetListener {
     /** Called once on the server thread after libGDX is up. */
     public void start() throws SocketException {
         Mp.setMode(Mp.Mode.SERVER);
+        ModDiscovery.select(config.mods);
         world.boot();
+        List<String> unknown = ModDiscovery.unmatchedSelections();
+        if (!unknown.isEmpty()) {
+            throw new IllegalArgumentException("mod not found: " + String.join(", ", unknown)
+                    + " (give installed Workshop IDs, mod titles, folder names or folder paths)");
+        }
+        mods = ModManifest.current();
+        Mp.log("running " + mods.describe());
         net = NetEndpoint.server(config.port, config.maxPlayers, this);
         Mp.log("Delver Online server '" + config.name + "' listening on UDP port " + net.getLocalPort()
                 + " (max " + config.maxPlayers + " players). Type 'help' for commands.");
@@ -193,6 +207,12 @@ public final class DelverServer implements NetListener {
         String name = sanitizeName(r.readString());
         if (version != Mp.PROTOCOL_VERSION) {
             kick(conn, "Version mismatch: server protocol " + Mp.PROTOCOL_VERSION + ", client " + version + ".");
+            return;
+        }
+        String modProblem = mods.mismatch(ModManifest.read(r));
+        if (modProblem != null) {
+            Mp.log("refused " + name + " from " + conn.getAddress() + ": mods differ");
+            kick(conn, modProblem);
             return;
         }
         if (players.size() >= config.maxPlayers) {

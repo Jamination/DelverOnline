@@ -105,12 +105,33 @@ The server needs UDP port 27960 (or `--port`) reachable by the players.
 | `spawn <monster> [player]` | spawn a monster next to a player |
 | `give <player> <item>` | give an item by name |
 | `butcher` | kill every monster on the level |
+| `mods` | the mods players need to join |
 | `newrun` | restart the dungeon from the camp |
 | `fieldstats` | which replicated fields use the most bandwidth |
 | `stop` | shut down |
 
-Server options: `--port`, `--name`, `--max-players` (1-8), `--stats-file <json>` (performance and consistency summary written on
-exit), `--allow-cheats` (lets clients change level without standing on stairs; for testing), `--no-console`.
+Server options: `--port`, `--name`, `--max-players` (1-8), `--mods all|none|<list>` (see *Mods*), `--stats-file <json>`
+(performance and consistency summary written on exit), `--allow-cheats` (lets clients change level without standing on
+stairs; for testing), `--no-console`.
+
+### Mods
+
+The server runs Delver mods the same way the game does, and every player must have exactly the same mods to join.
+
+- **Which mods**: by default the server loads every mod Delver would: the Workshop items Steam has installed for
+  Delver, and folders in the game's `mods/` folder. `--mods none` runs the plain game; `--mods <list>` picks some, by
+  Workshop ID, mod title, folder name or folder path, comma-separated (`--mods "Guns!,902721979,/path/to/my-mod"`). The
+  console command `mods` lists what the server runs; it is also printed at start-up.
+- **Players**: subscribe to the same Workshop items in Steam (or copy the same folders into `mods/`) and leave them
+  enabled in Delver's *Mods* menu. A player whose mods differ is turned away with the list to fix: mods to install or
+  enable, mods to disable, and mods with a different version (Steam updates them; files are compared byte for byte).
+  Without Steam (for example a second window started with `DELVERONLINE_NO_STEAM=1`) the game uses the Workshop
+  items Steam has already installed.
+- **Load order**: later mods override earlier ones, and Steam's own order differs between computers, so Delver Online
+  loads local `mods/` folders by name and then Workshop items by ID, in single player too.
+- **What is shared**: everything from the mods, like the rest of the game: the server builds levels with the mods'
+  level pieces and dungeons, and spawns their items, monsters, decorations and loot; players see and use them the same
+  way. Art, sound and shaders come from each player's own copy of the mods.
 
 ## How it works
 
@@ -130,12 +151,15 @@ exit), `--allow-cheats` (lets clients change level without standing on stairs; f
 - `client`: replaces the level tick with interpolation of server state plus local simulation of purely visual
   entities. The local player stays client-side (smooth movement) and anything it does to the world becomes a
   request to the server.
+- `mods`: completes and orders Delver's mod list the same way everywhere, fingerprints every mod's files, and
+  compares the server's list with each joining player's.
 
 ## Tests
 
 ```sh
-./gradlew test       # transport tests + MultiplayerScenarioTest + EndingTest (real server + headless game clients)
+./gradlew test       # transport tests + scenario, ending, reconnect and mods tests (real server + headless game clients)
 ./gradlew soakTest   # 8 headless clients for 10 minutes (-PsoakSeconds=N to change)
+./gradlew soakTest -PtestMods=all   # the same with the installed mods (tests run without mods by default)
 ```
 
 The scenario test starts the real server and real game clients (headless, no-op GL). It checks that players see
@@ -143,6 +167,9 @@ each other, chat reaches everyone and fades, pickups, hits and doors are shared,
 spectate, a new level revives them, a party wipe ends the game, and the client remembers the last server. The
 ending test gives a player the orb, has the party escape from the first dungeon level, and checks that everyone
 reaches the ending and sees the victory screen.
+
+The mods test runs a server with the small mod in `src/test/mods/testmod`: players without it, or with an edited
+copy, are refused with a message naming the mod, and players with it share its item and monster.
 
 The soak test runs eight clients with deaths, revives, level changes and chat. It asserts that:
 

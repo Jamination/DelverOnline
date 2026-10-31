@@ -31,6 +31,7 @@ final class Commands {
                 case "?":
                     out("Commands:\n"
                             + "  status                 server, level and performance summary\n"
+                            + "  mods                   the mods players need to join\n"
                             + "  players | list         connected players\n"
                             + "  say <message>          chat as the server\n"
                             + "  kick <player> [reason] disconnect a player\n"
@@ -47,6 +48,11 @@ final class Commands {
                 case "status":
                     out(server.world.describe());
                     out(server.stats.summaryLine(server));
+                    break;
+                case "mods":
+                    // the list players must match, in load order
+                    if (server.mods.isEmpty()) out("no mods: players need Delver without mods");
+                    for (com.delveronline.mods.ModManifest.Entry e : server.mods.entries) out("  " + e);
                     break;
                 case "players":
                 case "list":

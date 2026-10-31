@@ -63,6 +63,8 @@ test {
     systemProperty 'delveronline.delverJar', delverJar.absolutePath
     systemProperty 'delveronline.delverDir', file(delverDir).absolutePath
     systemProperty 'delveronline.projectDir', projectDir.absolutePath
+    // servers and bots run without mods unless -PtestMods=all (or a --mods list) is given
+    systemProperty 'delveronline.mods', project.findProperty('testMods') ?: 'none'
     maxHeapSize = '1g'
     testLogging {
         events 'passed', 'failed', 'skipped'
@@ -85,6 +87,7 @@ tasks.register('soakTest', Test) {
     systemProperty 'delveronline.delverDir', file(delverDir).absolutePath
     systemProperty 'delveronline.projectDir', projectDir.absolutePath
     systemProperty 'delveronline.soakSeconds', project.findProperty('soakSeconds') ?: '600'
+    systemProperty 'delveronline.mods', project.findProperty('testMods') ?: 'none'
     maxHeapSize = '1g'
     testLogging { events 'passed', 'failed'; exceptionFormat 'full'; showStandardStreams = true }
 }

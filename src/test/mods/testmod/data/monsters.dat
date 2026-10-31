@@ -1,0 +1,22 @@
+{
+    "monsters": {
+        "DUNGEON": [
+            {
+                "class": "com.interrupt.dungeoneer.entities.Monster",
+                "tex": 0,
+                "name": "TESTSLIME",
+                "speed": 0.003,
+                "maxHp": 9,
+                "atk": 1,
+                "chasetarget": false,
+                "hasAttackAnim": false,
+                "bloodType": "Slime",
+                "canOpenDoors": false,
+                "walkAnimation": {"start": 0, "end": 3, "speed": 35},
+                "hurtAnimation": {"start": 12, "end": 15, "speed": 22},
+                "attackAnimation": {"start": 4, "end": 11, "speed": 55, "actions": {"8": [{"class": "com.interrupt.dungeoneer.gfx.animation.DamageAction"}]}},
+                "dieAnimation": {"start": 16, "end": 19, "speed": 22}
+            }
+        ]
+    }
+}

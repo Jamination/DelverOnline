@@ -26,6 +26,13 @@ public final class Advices {
         }
     }
 
+    public static final class ModsFound {
+        @Advice.OnMethodExit
+        static void exit(@Advice.This Object modManager) {
+            Hooks.modsFound(modManager);
+        }
+    }
+
     public static final class Sound2 {
         @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
         static boolean enter(@Advice.Argument(0) String file, @Advice.Argument(1) float volume) {

@@ -21,6 +21,10 @@ import com.interrupt.dungeoneer.tiles.Tile;
 public final class Hooks {
     private Hooks() {}
 
+    public static void modsFound(Object modManager) {
+        com.delveronline.mods.ModDiscovery.afterFindMods((com.interrupt.dungeoneer.game.ModManager) modManager);
+    }
+
     public static boolean headlessSkip() {
         return Mp.headless;
     }

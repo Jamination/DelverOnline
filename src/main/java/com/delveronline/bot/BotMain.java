@@ -50,6 +50,8 @@ public final class BotMain {
                 case "--name": name = args[++i]; break;
                 case "--singleplayer": singleplayer = true; break;
                 case "--seed": seed = Long.parseLong(args[++i]); break;
+                // same meaning as the server's option: all (default), none, or a list
+                case "--mods": com.delveronline.mods.ModDiscovery.select(args[++i]); break;
                 default: throw new IllegalArgumentException("unknown option " + args[i]);
             }
         }
@@ -253,17 +255,19 @@ public final class BotMain {
                     for (com.interrupt.dungeoneer.entities.Item i : pl.inventory) {
                         if (i == null) continue;
                         n++;
-                        sb.append(i.getClass().getSimpleName()).append(' ');
+                        sb.append(i.getClass().getSimpleName()).append('(').append(i.name).append(") ");
                     }
                     event("inv " + n + " gold " + pl.gold + " keys " + pl.keys + " hp " + pl.hp + " : " + sb.toString().trim());
                     break;
                 }
                 case "throw": {
+                    // drop the first inventory item (of the given class or with the given name, if one is named)
                     Player pl = Game.instance == null ? null : Game.instance.player;
                     if (pl == null) break;
+                    String want = p.length > 1 ? p[1].trim() : null;
                     for (int i = 0; i < pl.inventory.size; i++) {
                         com.interrupt.dungeoneer.entities.Item it = pl.inventory.get(i);
-                        if (it == null) continue;
+                        if (it == null || (want != null && !isA(it, want) && !want.equalsIgnoreCase(it.name))) continue;
                         pl.dropItem(it, Game.instance.level, 0.5f);
                         event("threw " + it.getClass().getSimpleName());
                         break;
@@ -348,6 +352,9 @@ public final class BotMain {
             if (e instanceof com.interrupt.dungeoneer.entities.Actor) sb.append(" hp=").append(((com.interrupt.dungeoneer.entities.Actor) e).hp);
             if (e instanceof com.interrupt.dungeoneer.entities.Door) sb.append(" door=").append(((com.interrupt.dungeoneer.entities.Door) e).doorState);
             if (e instanceof com.interrupt.dungeoneer.entities.Stairs) sb.append(" dir=").append(((com.interrupt.dungeoneer.entities.Stairs) e).direction);
+            String name = e instanceof com.interrupt.dungeoneer.entities.Item ? ((com.interrupt.dungeoneer.entities.Item) e).name
+                    : e instanceof com.interrupt.dungeoneer.entities.Monster ? ((com.interrupt.dungeoneer.entities.Monster) e).name : null;
+            if (name != null) sb.append(" name=\"").append(name).append('"');
             return sb.toString();
         }
 
