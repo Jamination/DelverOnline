@@ -348,10 +348,9 @@ public final class MultiplayerMenu {
         });
     }
 
-    /** Button text; arrows show there is more to pick from when the player has saved characters. */
+    /** Button text (Delver's font has no '<' or '>': it draws them as icons). */
     private static String characterText(List<SaveSlots.Slot> slots, int choice) {
-        String text = choice < 0 ? "New character" : slots.get(choice).summary;
-        return slots.isEmpty() ? text : "< " + text + " >";
+        return choice < 0 ? "New character" : slots.get(choice).summary;
     }
 
     private static String defaultName() {
