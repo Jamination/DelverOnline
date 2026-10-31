@@ -145,8 +145,8 @@ final class CharacterSprites {
                 look.offhandX = 2f * cx - handX[idle];
                 look.offhandY = handY[idle] + 1f;
             }
-            Texture texture = new Texture(out);
-            TextureAtlas atlas = new TextureAtlas(COLUMNS, texture, out);
+            PlayerAtlas atlas = new PlayerAtlas(out);
+            out = null; // kept by the atlas
             atlas.name = ATLAS;
             atlas.scale = first.scale;
             atlas.y_offset = first.y_offset;
@@ -154,7 +154,27 @@ final class CharacterSprites {
             TextureAtlas.cacheAtlas(atlas, ATLAS);
         } finally {
             for (Pixmap p : sheets.values()) p.dispose();
-            out.dispose();
+            if (out != null) out.dispose();
+        }
+    }
+
+    /**
+     * The generated atlas. Delver empties its art cache whenever a game starts or a level loads (Art.KillCache: every
+     * atlas's texture is disposed and reloaded from its image file on next use). This atlas has no file, so it keeps
+     * its pixels and rebuilds its texture from them.
+     */
+    static final class PlayerAtlas extends TextureAtlas {
+        private final Pixmap pixels;
+
+        PlayerAtlas(Pixmap pixels) {
+            super(COLUMNS, new Texture(pixels), pixels);
+            this.pixels = pixels;
+        }
+
+        @Override
+        public void load() {
+            texture = new Texture(pixels);
+            generateAtlas(pixels);
         }
     }
 
