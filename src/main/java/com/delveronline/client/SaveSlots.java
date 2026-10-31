@@ -62,8 +62,8 @@ final class SaveSlots {
             if (!f.exists()) continue;
             try {
                 JsonValue p = new JsonReader().parse(f);
-                StringBuilder sb = new StringBuilder("Slot ").append(i + 1).append(" - level ").append(p.getInt("level", 1))
-                        .append(", ").append(p.getInt("gold", 0)).append(" gold");
+                StringBuilder sb = new StringBuilder("Slot ").append(i + 1).append(" - Lv ").append(p.getInt("level", 1))
+                        .append(", ").append(p.getInt("gold", 0)).append("g");
                 slots.add(new Slot(i, sb.toString()));
             } catch (RuntimeException e) {
                 // unreadable slot: not offered

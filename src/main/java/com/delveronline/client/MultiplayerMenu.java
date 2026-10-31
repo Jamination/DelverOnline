@@ -220,6 +220,9 @@ public final class MultiplayerMenu {
             Label characterLabel = new Label("Character", skin);
             final TextButton character = new TextButton(characterText(slots, choice[0]), skin);
             character.setName("delveronline-character");
+            // never wider than the button: a long text is cut with "..." instead of spilling over the label
+            character.getLabel().setEllipsis(true);
+            character.getLabelCell().width(200f);
             character.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
@@ -345,9 +348,10 @@ public final class MultiplayerMenu {
         });
     }
 
+    /** Button text; arrows show there is more to pick from when the player has saved characters. */
     private static String characterText(List<SaveSlots.Slot> slots, int choice) {
-        if (choice < 0) return slots.isEmpty() ? "New character" : "New character (click to change)";
-        return slots.get(choice).summary;
+        String text = choice < 0 ? "New character" : slots.get(choice).summary;
+        return slots.isEmpty() ? text : "< " + text + " >";
     }
 
     private static String defaultName() {
