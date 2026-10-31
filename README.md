@@ -9,7 +9,11 @@ and the multiplayer code is woven in at start-up by a Java agent, so the Steam i
 - **Dedicated server** running the real Delver simulation headlessly: level generation, monsters, traps, doors,
   triggers, loot and the whole run from the camp to the ending. It also has a console with admin commands.
 - **Joining from the main menu**: a native *Multiplayer* button next to *Options* opens a join panel drawn in Delver's own
-  UI style. The last server and your name are remembered.
+  UI style. The last server, your name and your character choice are remembered.
+- **Join with a saved character**: the panel's *Character* button cycles between a new character and the characters in
+  your save slots. With a slot, you join with that character, and its items, gold, keys, health, experience and stats
+  from the server are saved back into the slot while you play and when you leave. Its place in its own single-player
+  dungeon stays as it was, and quest items (the orb) never move between a slot's run and a server's run.
 - **Everything synchronized**: levels are streamed from the server, world entities are replicated field by field and
   interpolated, and every interaction runs on the server for everyone (hits, door/lever/stairs use, pickups, thrown
   items, projectiles, spells, shop/dialogue triggers). Sounds and particle effects are replicated too.
