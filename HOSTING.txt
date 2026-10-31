@@ -7,19 +7,25 @@ Your network
   Router / default gateway:  192.168.7.1     (Icotera i4882-01)
   Router admin page:         http://192.168.7.1
   Router login:              username "admin", password from the router sticker
-  Public address:            149.13.193.50   (as seen by websites; your ISP may change it)
-  Server port:               UDP 27960
+  Public address:            149.13.193.50 is NOT yours alone: your ISP uses
+                             carrier-grade NAT (shared address), so router port
+                             forwarding can't work. Friends connect through a
+                             playit.gg tunnel instead.
+  Server port:               UDP 27960 (on this PC)
 
-Port forwarding (already set up)
---------------------------------
-The router forwards UDP port 27960 to this PC (192.168.7.208).
-If friends suddenly cannot connect, check in the router admin page that:
-  - the rule still exists and is UDP (not TCP), external and internal port 27960
-  - it still points at 192.168.7.208. This PC gets its address automatically, so
-    it can change. Reserve 192.168.7.208 for this PC in the router's DHCP
-    settings so it stays the same.
-Do NOT factory-reset the router to get back in: on a fibre box this can wipe
-the settings your ISP pushed and leave you without internet.
+playit.gg tunnel (set up)
+-------------------------
+  Friends' address:          domination-spur.tun.ply.gg:55125   (UDP)
+  Forwards to:               127.0.0.1:27960 on this PC
+  Agent name on playit.gg:   "DelverOnline server" (your playit account)
+  Agent program and key:     .tools/playit/ (playit, secret.key; not in git,
+                             keep secret.key private)
+  Start it:                  scripts/start-tunnel.sh
+  Manage tunnels:            https://playit.gg (dashboard, log in with your account)
+
+  The tunnel address stays the same unless you delete the tunnel. If you ever
+  get a public IP from your ISP, the router rule (UDP 27960 -> 192.168.7.208)
+  is still there and friends could use the public IP directly instead.
 
 1. Build the executables (only after code changes)
 --------------------------------------------------
@@ -41,7 +47,8 @@ the settings your ISP pushed and leave you without internet.
     build/release/DelverOnline-Server-linux-x64 --mods none
     build/release/DelverOnline-Server-linux-x64 --mods "Guns!,Moar Booty"
 
-  It listens on UDP 27960. Leave the terminal open; type commands into it:
+  It listens on UDP 27960. Then start the tunnel (step 2b).
+  Leave both terminals open; type commands into the server's:
     help              list all commands
     players           who is connected (and whether a friend's connection arrived)
     mods              the mods your friends need (players with other mods are refused)
@@ -50,6 +57,13 @@ the settings your ISP pushed and leave you without internet.
     kick <name>       remove a player
     newrun            restart the dungeon
     stop              shut the server down
+
+2b. Start the tunnel (second terminal)
+--------------------------------------
+  scripts/start-tunnel.sh
+
+  It connects to playit.gg and forwards friends' traffic to the server here.
+  Leave it running while you play; Ctrl+C stops it.
 
 3. Give your friends the game
 -----------------------------
@@ -68,24 +82,22 @@ the settings your ISP pushed and leave you without internet.
 
 4. Joining
 ----------
-  Friends:  main menu -> Multiplayer -> Server: 149.13.193.50  -> name -> Join
-  You:      main menu -> Multiplayer -> Server: 127.0.0.1      -> name -> Join
-            (or 192.168.7.208)
-
-  Do not join your own server through 149.13.193.50 from this PC: many routers
-  don't route a PC's own public address back to it, so joining that way can fail
-  even when outside players can connect.
+  Friends:  main menu -> Multiplayer -> Server: domination-spur.tun.ply.gg:55125
+                                     -> name -> Join
+  You:      main menu -> Multiplayer -> Server: 127.0.0.1 -> name -> Join
+            (joining through the tunnel address from this PC works too, but
+            takes a detour through playit's servers)
 
 If a friend cannot connect
 --------------------------
   1. Is the server running? Type "status" in its console.
-  2. Did their connection attempt arrive? Type "players" in the console.
-  3. Check the router rule: UDP, port 27960, to 192.168.7.208.
-  4. Has your public address changed? Open https://api.ipify.org and send them the new one.
-  5. If the router's own status page shows an internet address different from
-     your public one, another router or the ISP sits in front of yours (double
-     NAT), so the forward cannot work. Ask the ISP for a public IP or bridge mode,
-     or use Tailscale / ZeroTier / playit.gg instead (no port forwarding needed).
+  2. Is the tunnel running? The scripts/start-tunnel.sh terminal must stay open,
+     and the agent shows as online on the playit.gg dashboard.
+  3. Did their connection attempt arrive? Type "players" in the console.
+  4. Did they type the address exactly: domination-spur.tun.ply.gg:55125
+     (the :55125 is required). Check the dashboard in case playit changed it.
+  5. The server must use its default port 27960: the tunnel forwards to
+     127.0.0.1:27960. If you start it with --port, edit the tunnel to match.
 
   If they see "Your mods don't match the server's": the message lists what to
   install or enable, what to disable, and which mods are a different version.
