@@ -26,6 +26,7 @@ import com.interrupt.dungeoneer.screens.MainMenuScreen;
 import com.interrupt.dungeoneer.ui.UiSkin;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 /**
  * Adds a "Multiplayer" button to Delver's main menu and a join panel drawn with the game's own UI skin. The last
@@ -211,6 +212,25 @@ public final class MultiplayerMenu {
             Label nameLabel = new Label("Name", skin);
             t.add(nameLabel).left().padRight(8f);
             t.add(name).width(220f).height(22f).left();
+            t.row().padTop(4f);
+            // join with a new character or with a save slot's character (its progress is saved back to the slot)
+            final List<SaveSlots.Slot> slots = SaveSlots.list();
+            final int[] choice = {-1};
+            for (int i = 0; i < slots.size(); i++) if (slots.get(i).index == settings.characterSlot) choice[0] = i;
+            Label characterLabel = new Label("Character", skin);
+            final TextButton character = new TextButton(characterText(slots, choice[0]), skin);
+            character.setName("delveronline-character");
+            character.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    if (slots.isEmpty()) return;
+                    click();
+                    choice[0] = choice[0] + 1 >= slots.size() ? -1 : choice[0] + 1;
+                    character.setText(characterText(slots, choice[0]));
+                }
+            });
+            t.add(characterLabel).left().padRight(8f);
+            t.add(character).width(220f).height(22f).left();
             t.row();
 
             final Label status = new Label(message == null ? "" : message, skin);
@@ -254,9 +274,10 @@ public final class MultiplayerMenu {
                 ClientSettings s = ClientSettings.load();
                 s.lastServer = addr;
                 s.playerName = name.getText().trim();
+                s.characterSlot = choice[0] >= 0 ? slots.get(choice[0]).index : -1;
                 s.save();
                 status.setColor(Color.WHITE);
-                MpClient c = MpClient.connect(host, port, name.getText().trim());
+                MpClient c = MpClient.connect(host, port, name.getText().trim(), s.characterSlot);
                 watch(stage, status, c);
             };
             join.addListener(new ClickListener() {
@@ -294,7 +315,7 @@ public final class MultiplayerMenu {
             full.getColor().a = 0f;
             full.setTouchable(Touchable.enabled);
             full.addAction(Actions.fadeIn(FADE_IN));
-            Actor[][] rows = {{title}, {serverLabel, address}, {nameLabel, name}, {status}, {back, join}};
+            Actor[][] rows = {{title}, {serverLabel, address}, {nameLabel, name}, {characterLabel, character}, {status}, {back, join}};
             for (int i = 0; i < rows.length; i++) {
                 for (Actor a : rows[i]) {
                     a.getColor().a = 0f;
@@ -322,6 +343,11 @@ public final class MultiplayerMenu {
                 return c.gameStarted;
             }
         });
+    }
+
+    private static String characterText(List<SaveSlots.Slot> slots, int choice) {
+        if (choice < 0) return slots.isEmpty() ? "New character" : "New character (click to change)";
+        return slots.get(choice).summary;
     }
 
     private static String defaultName() {

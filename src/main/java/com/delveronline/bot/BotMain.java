@@ -33,6 +33,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public final class BotMain {
     private BotMain() {}
 
+    /** save slot (0-2) to join with, -1 for a new character; set from --slot before the game starts */
+    static int characterSlot = -1;
+
     public static void main(String[] args) {
         if (!DelverOnlineAgent.isInstalled()) {
             System.err.println("run with -javaagent:delveronline.jar");
@@ -52,6 +55,8 @@ public final class BotMain {
                 case "--seed": seed = Long.parseLong(args[++i]); break;
                 // same meaning as the server's option: all (default), none, or a list
                 case "--mods": com.delveronline.mods.ModDiscovery.select(args[++i]); break;
+                // join with the character of save slot 1-3 in the bot's folder (progress is saved back to it)
+                case "--slot": characterSlot = Integer.parseInt(args[++i]) - 1; break;
                 default: throw new IllegalArgumentException("unknown option " + args[i]);
             }
         }
@@ -113,7 +118,7 @@ public final class BotMain {
                 GameApplication.ShowMainScreen();
                 event("singleplayer started");
             } else {
-                MpClient.connect(host, port, name);
+                MpClient.connect(host, port, name, characterSlot);
             }
         }
 

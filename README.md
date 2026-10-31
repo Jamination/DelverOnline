@@ -157,7 +157,7 @@ The server runs Delver mods the same way the game does, and every player must ha
 ## Tests
 
 ```sh
-./gradlew test       # transport tests + scenario, ending, reconnect and mods tests (real server + headless game clients)
+./gradlew test       # transport tests + scenario, ending, reconnect, mods and save-slot tests (real server + headless game clients)
 ./gradlew soakTest   # 8 headless clients for 10 minutes (-PsoakSeconds=N to change)
 ./gradlew soakTest -PtestMods=all   # the same with the installed mods (tests run without mods by default)
 ```

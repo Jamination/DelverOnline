@@ -11,12 +11,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Properties;
 
-/** Remembers the last server joined and the player name (stored next to Delver's options in the data dir). */
+/** Remembers the last server joined, the player name and character (stored next to Delver's options in the data dir). */
 public final class ClientSettings {
     static final String FILE_NAME = "delveronline.properties";
 
     public String lastServer = "";
     public String playerName = "";
+    /** save slot (0-2) whose character to join with, or -1 for a new character */
+    public int characterSlot = -1;
 
     public static File file() {
         return Game.getFile(Options.getOptionsDir() + FILE_NAME).file();
@@ -31,6 +33,11 @@ public final class ClientSettings {
             p.load(in);
             s.lastServer = p.getProperty("lastServer", "");
             s.playerName = p.getProperty("playerName", "");
+            try {
+                s.characterSlot = Integer.parseInt(p.getProperty("characterSlot", "-1").trim());
+            } catch (NumberFormatException e) {
+                s.characterSlot = -1;
+            }
         } catch (Exception e) {
             Mp.log("could not read " + f + ": " + e);
         }
@@ -44,6 +51,7 @@ public final class ClientSettings {
         Properties p = new Properties();
         p.setProperty("lastServer", lastServer == null ? "" : lastServer);
         p.setProperty("playerName", playerName == null ? "" : playerName);
+        p.setProperty("characterSlot", String.valueOf(characterSlot));
         try (OutputStream out = new FileOutputStream(f)) {
             p.store(out, "Delver Online");
         } catch (Exception e) {

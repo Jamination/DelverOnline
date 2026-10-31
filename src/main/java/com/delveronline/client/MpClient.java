@@ -94,6 +94,10 @@ public final class MpClient implements NetListener {
     /** a returning player's character from the server, used instead of a fresh one when the game starts */
     private String restoreJson;
     private boolean restoreDead;
+    /** save slot (0-2) the character came from and is saved back to; -1 for a new character */
+    private int slot = -1;
+    private String savedCharacterJson;
+    private long lastSlotSave;
     private int lastInventorySignature;
     private long lastReportMs;
     private int framesSinceReport;
@@ -118,11 +122,25 @@ public final class MpClient implements NetListener {
         return current;
     }
 
-    /** Starts connecting. Progress is visible through {@link #status} and {@link #phase}. */
+    /** Starts connecting with a new character. */
     public static MpClient connect(String host, int port, String name) {
+        return connect(host, port, name, -1);
+    }
+
+    /**
+     * Starts connecting with the character of save slot {@code slot} (0-2), or a new character when negative.
+     * Progress is visible through {@link #status} and {@link #phase}.
+     */
+    public static MpClient connect(String host, int port, String name, int slot) {
         MpClient old = current;
         if (old != null) old.disconnect("reconnecting");
         MpClient c = new MpClient(host, port, name);
+        String saved = slot >= 0 ? SaveSlots.characterForJoining(slot) : null;
+        if (saved != null) {
+            // used when the game starts, unless the server gives back a character this player had in this run
+            c.slot = slot;
+            c.restoreJson = saved;
+        }
         current = c;
         Mp.setMode(Mp.Mode.CLIENT);
         try {
@@ -632,6 +650,7 @@ public final class MpClient implements NetListener {
         lastCharacterJson = json;
         byte[] packed = NetKryo.deflate(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         send(new ByteWriter(packed.length + 8).writeByte(Msg.C_CHARACTER).writeBytes(packed));
+        saveToSlot(false);
     }
 
     /** The character this player had before they left, or null for a new player. */
@@ -962,6 +981,7 @@ public final class MpClient implements NetListener {
             if (conn != null && conn.isConnected()) conn.close(reason);
         }
         closeNetwork();
+        saveToSlot(true);
         if (!gameStarted) finishSession();
     }
 
@@ -977,9 +997,22 @@ public final class MpClient implements NetListener {
     void finishSession() {
         closeNetwork();
         phase = Phase.CLOSED;
+        saveToSlot(true);
         if (current == this) {
             current = null;
             Mp.setMode(Mp.Mode.OFF);
+        }
+    }
+
+    /** Writes the character back into the save slot it came from (at most every 15 s unless {@code now}). */
+    private void saveToSlot(boolean now) {
+        if (slot < 0 || lastCharacterJson == null || lastCharacterJson == savedCharacterJson) return;
+        long t = System.currentTimeMillis();
+        if (!now && t - lastSlotSave < 15000) return;
+        lastSlotSave = t;
+        if (SaveSlots.writeBack(slot, lastCharacterJson)) {
+            savedCharacterJson = lastCharacterJson;
+            event("saved character to slot " + (slot + 1));
         }
     }
 }
